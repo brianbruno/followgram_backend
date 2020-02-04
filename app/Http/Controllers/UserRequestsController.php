@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\UserRequest;
+use App\UserInstagram;
 use Illuminate\Support\Facades\Auth;
 
 class UserRequestsController extends Controller
@@ -29,14 +30,26 @@ class UserRequestsController extends Controller
         try {
             
             $user = Auth::user();
-            $instaAccounts = [];
+            $instaAccounts = [];  
+            $filteredRequests = [];
           
             foreach($user->instagramAccounts()->get() as $account) {
                 $instaAccounts[] = $account->id;
             }
 
             $requests = UserRequest::whereNotIn('insta_target', $instaAccounts)->with('targetUserInsta')->get();
-            $result['data'] = $requests->toArray();
+          
+            foreach ($requests as $userInstaRequest) {
+                $targetUser = $userInstaRequest->targetUserInsta()->first();
+                $userSystemTarget = $targetUser->user()->first();
+                
+                if ($userSystemTarget->points >= -15) {
+                    $filteredRequests[] = $userInstaRequest;
+                }
+              
+            }
+            // $result['data'] = $requests->toArray();
+            $result['data'] = $filteredRequests;
           
         } catch (\Exception $e) {
             $result['success'] = false;
@@ -51,7 +64,8 @@ class UserRequestsController extends Controller
         $request->validate([
             'idInstaTarget' => 'required',
             'type'          => 'required',
-            'points'        => 'required'
+            'points'        => 'required',
+            'activate'      => 'required'
         ]);
       
         $result = array(
@@ -68,22 +82,42 @@ class UserRequestsController extends Controller
             $idInstaTarget = $request->idInstaTarget;
             $type = $request->type;
             $points = $request->points;
+            $activate = $request->activate;
           
             foreach($user->instagramAccounts()->get() as $account) {
                 $instaAccounts[] = $account->id;
             }
-            
-            $searched = UserRequest::where('insta_target', $idInstaTarget)->where('type', $type)->first(); 
           
-            if (!empty($searched)) {
-                throw new \Exception('Já existe um pedido com essas informações.');
+            $accountInfo = UserInstagram::where('id', $idInstaTarget)->first();
+
+            if ($accountInfo->is_private == 1) {
+                throw new \Exception('Não é possível realizar esse procedimento para contas privadas. Você pode ser penalizado caso persista. Caso libere sua conta, aguarde até 1 hora.');
             }
           
-            $newRequest = new UserRequest();
-            $newRequest->insta_target = $idInstaTarget;
-            $newRequest->type = $type;
-            $newRequest->points = $points;
-            $newRequest->save();
+            if ($type == 'follow') {
+                  
+                $requestItem = UserRequest::where('insta_target', $idInstaTarget)->where('type', $type)->first();               
+                
+            } else if ($type == 'like') {
+                $post_url = $request->post_url;
+                
+                if (empty($post_url)) {
+                    throw new \Exception('Post para curtidas inválido.');
+                }
+              
+                $requestItem = UserRequest::where('insta_target', $idInstaTarget)->where('type', $type)->where('post_url', $post_url)->first(); 
+            }
+          
+            if (empty($requestItem)) {
+                $requestItem = new UserRequest();                
+            } 
+
+            $requestItem->insta_target = $idInstaTarget;
+            $requestItem->type = $type;
+            $requestItem->points = $points;
+            $requestItem->post_url = empty($post_url) ? null : $post_url;
+            $requestItem->active = $activate == true ? 1 : 0;
+            $requestItem->save();            
             
           
         } catch (\Exception $e) {

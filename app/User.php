@@ -72,7 +72,17 @@ class User extends Authenticatable
   
     public function getNewLikesAttribute()
     {
-        return 0;
+        $instaAccounts = $this->instagramAccounts()->get();
+        $confirmedLikes = 0;
+        // pega os ultimos 7 dias
+        $date = \Carbon\Carbon::today()->subDays(7);
+
+        foreach($instaAccounts as $account) {
+            $confirmedLikes += $account->instagramLikes()->where('status', 'confirmed')
+                      ->where('created_at', '>=', $date)->count();
+        }
+      
+        return $confirmedLikes;
     }
   
     public function getPendingPointsAttribute()
@@ -81,9 +91,14 @@ class User extends Authenticatable
         $pending = 0;
 
         foreach($instaAccounts as $account) {
-            $followers = $account->instagramFollowers()->where('status', 'pending')->get();
+            $followers = $account->instagramFollowing()->where('status', 'pending')->get();
             foreach ($followers as $follow) {
                 $pending = $pending + $follow->points; 
+            }
+          
+            $likes = $account->instagramLikes()->where('status', 'pending')->get();
+            foreach ($likes as $like) {
+                $pending = $pending + $like->points; 
             }
         }
       

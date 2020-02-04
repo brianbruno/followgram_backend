@@ -13,6 +13,10 @@ use Illuminate\Http\Request;
 |
 */
 
+header('Access-Control-Allow-Origin:  *');
+header('Access-Control-Allow-Methods:  POST, GET, OPTIONS, PUT, DELETE');
+header('Access-Control-Allow-Headers:  Content-Type, X-Auth-Token, Origin, Authorization');
+
 Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
@@ -40,6 +44,9 @@ Route::group([
     ], function () {
         Route::post('adduser', 'InstagramAuthController@addUser');
         Route::post('confirm', 'InstagramAuthController@confirm');
+        Route::post('getAccounts', 'InstagramAuthController@getAccounts');
+      
+        Route::post('getPosts', 'InstagramAuthController@getPosts');
     });
   
     Route::group([
@@ -51,8 +58,22 @@ Route::group([
     Route::group([
       'prefix' => 'requests'
     ], function () {
-        Route::post('get', 'UserRequestsController@getResquests');
-        Route::post('add', 'UserRequestsController@addRequest');
+        Route::post('get', 'UserRequestsController@getResquests')->name('getrequests');
+        Route::post('add', 'UserRequestsController@addRequest')->name('addrequests');
+    });
+  /*
+    Route::group([
+      'prefix' => 'photolike'
+    ], function () {
+       Route::post('add', 'LikeController@addLike')->name('addlikes');        
+    });
+  */
+    
+    Route::group([
+      'prefix' => 'photolike'
+    ], function () {
+        Route::post('home', 'LikeController@test');
+        Route::post('photolike', 'LikeController@photolikeAdd')->name('addlikes');     
     });
 
 });

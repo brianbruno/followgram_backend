@@ -25,6 +25,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->command('verify:follow')->everyFiveMinutes();
+        $schedule->command('verify:like')->everyFiveMinutes();
+        $schedule->command('update:accounts')->everyThirtyMinutes();
     }
 
     /**

@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\UserFollow;
 use App\UserInstagram;
 use Phpfastcache\Helper\Psr16Adapter;
+use Illuminate\Support\Facades\Cache;
 
 class VerifyFollow extends Command
 {
@@ -62,34 +63,60 @@ class VerifyFollow extends Command
 
                 $targetfollow = UserInstagram::where('id', $follow->insta_target)->first();
                 $following = UserInstagram::where('id', $follow->insta_following)->first();
+              
+                try {
+                  $minutes = 15;
+                  $account = Cache::remember('getAccountUsername-'.$targetfollow->username, $minutes*60, function () use ($targetfollow, $instagram) {
+                      $retorno = $instagram->getAccount($targetfollow->username);
+                      sleep(5);
+                      return $retorno;
+                  });
+                  
+                  $followersAccount = $instagram->getFollowers($account->getId(), 1000, 100, true);
 
-                $account = $instagram->getAccount($targetfollow->username);   
-                sleep(1);
-                $followersAccount = $instagram->getFollowers($account->getId(), 1000, 100, true);
+                  $isFollowing = false;
 
-                $isFollowing = false;
+                  foreach($followersAccount as $followAccount) {
+                      if($followAccount['username'] == $following->username) {
+                          $isFollowing = true;
 
-                foreach($followersAccount as $followAccount) {
-                    if($followAccount['username'] == $following->username) {
-                        $isFollowing = true;
-                      
-                        $follow->status = 'confirmed';
-                        $follow->save();
-                      
-                        // credita os pontos
-                        $following->user()->first()->addPoints($follow->points);
-                        // debita os pontos
-                        $targetfollow->user()->first()->removePoints($follow->points);
-                      
-                        break;
-                    }
+                          $follow->status = 'confirmed';
+                          $follow->save();
+
+                          // credita os pontos
+                          $following->user()->first()->addPoints($follow->points);
+                          // debita os pontos
+                          $targetfollow->user()->first()->removePoints($follow->points);
+
+                          break;
+                      }
+                  }
+
+                  if ($isFollowing) {
+                      $this->info($following->username . ' follows ' . $targetfollow->username);
+                  } else {
+                      $follow->status = 'canceled';
+                      $follow->save();
+                      $this->error($following->username . ' dont follow ' . $targetfollow->username);
+                  }
+                } catch (\InstagramScraper\Exception\InstagramException $e) {
+                      $follow->status = 'canceled';
+                      $follow->save();
+                      // penaliza usuário responsavel por problemas em 3 pontos.
+                      $targetfollow->user()->first()->removePoints(3);
+                      $accountsInsta = $targetfollow->user()->first()->instagramAccounts()->get();
+                  
+                      foreach ($accountsInsta as $accountInsta) {
+                          $requestsInsta = $accountInsta->instagramRequests()->get();      
+                          foreach ($requestsInsta as $requestInsta) {
+                              $requestInsta->active = 0;
+                              $requestInsta->save();
+                          }
+                      }
+                  
+                  
                 }
-
-                if ($isFollowing) {
-                    $this->info($following->username . ' follows ' . $targetfollow->username);
-                } else {
-                    $this->error($following->username . ' dont follow ' . $targetfollow->username);
-                }
+                
             }
         }
         

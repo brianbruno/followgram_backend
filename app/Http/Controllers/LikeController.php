@@ -4,12 +4,12 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\UserFollow;
+use App\UserLike;
 use App\UserInstagram;
 use App\UserRequest;
 use Illuminate\Support\Facades\Crypt;
 
-class FollowController extends Controller
+class LikeController extends Controller
 {
     /**
      * Create a new controller instance.
@@ -21,10 +21,11 @@ class FollowController extends Controller
         $this->middleware('auth');
     }
     
-    public function addFollow(Request $request) {
+    public function photolikeAdd(Request $request) {
+        
         $request->validate([
-            'idInstaFollowing' => 'required',
-            'idQuest' => 'required'
+            'idQuest' => 'required',
+            'idInstaLiking' => 'required'
         ]);
       
         $result = array(
@@ -35,16 +36,19 @@ class FollowController extends Controller
         try {
           
             $user = Auth::user();
-            $idInstaFollowing = $request->idInstaFollowing;
             $idQuest = $request->idQuest;
+            $idInstaLiking = $request->idInstaLiking;
           
             $questRequest = UserRequest::where('id', $idQuest)->first();
             if (empty($questRequest)) {
                 throw new \Exception('Esta oferta não existe.');
             }
-            $idFollowTarget = $questRequest->insta_target;   
-
-            $connection = UserFollow::where('insta_target', $idFollowTarget)->where('insta_following', $idInstaFollowing)->first();
+          
+            $idLikeTarget = $questRequest->insta_target;
+          
+            $connection = UserLike::where('insta_target', $idLikeTarget)->where('insta_liking', $idInstaLiking)->where('request_id', $questRequest->id)->first();
+            $questRequest = UserRequest::where('id', $idQuest)->first();
+            
           
             if ($questRequest->active == 0) {
                 throw new \Exception('Esta oferta não está mais ativa.');
@@ -53,17 +57,18 @@ class FollowController extends Controller
             // verifica se já existe uma quest de seguir essa pessoa.
             if (empty($connection)) {
                 
-                $userInstaTarget = UserInstagram::where('id', $idFollowTarget)->first();
+                $userInstaTarget = UserInstagram::where('id', $idLikeTarget)->first();
               
                 if ($userInstaTarget->user_id == $user->id) {
-                    throw new \Exception('Não é permitido seguir a si mesmo.');
+                    throw new \Exception('Não é permitido curtir suas próprias fotos.');
                 }
               
-                $userFollow = new UserFollow();
-                $userFollow->insta_target = $idFollowTarget;
-                $userFollow->insta_following = $idInstaFollowing;
-                $userFollow->points = $questRequest->points;
+                $userFollow = new UserLike();
+                $userFollow->request_id = $questRequest->id;
+                $userFollow->insta_target = $idLikeTarget;
+                $userFollow->insta_liking = $idInstaLiking;
                 $userFollow->status = 'pending';
+                $userFollow->points = $questRequest->points;
                 $userFollow->save();
               
                 $result['message'] = 'Operação realizada com sucesso.';
@@ -85,6 +90,7 @@ class FollowController extends Controller
         } catch (\Exception $e) {
             $result['success'] = false;
             $result['message'] = $e->getMessage();
+            $result['stack'] = $e->getTraceAsString();
         }    
       
         return response()->json($result, 200);

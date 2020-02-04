@@ -16,7 +16,7 @@ class AddStatusToUserFollowTable extends Migration
         Schema::table('user_follow', function (Blueprint $table) {
             $table->dropColumn(['pending', 'confirmed', 'canceled']);
           
-            $table->enum('status', ['pending', 'confirmed', 'canceled'])->after('points');	
+            $table->enum('status', ['pending', 'confirmed', 'canceled'])->default('pending')->after('points');	
         });
     }
 
