@@ -30,14 +30,35 @@ class UserRequestsController extends Controller
         try {
             
             $user = Auth::user();
-            $instaAccounts = [];  
+            $instaAccountsFollowing = [];  
+            $instaAccountsLiking = [];
+            $questsMade = [];
             $filteredRequests = [];
           
             foreach($user->instagramAccounts()->get() as $account) {
                 $instaAccounts[] = $account->id;
-            }
+                
+                foreach($account->instagramLikes()->get() as $accountLike) {
+                    if ($accountLike->status == 'confirmed' or $accountLike->status == 'pending') {
+                        $questsMade[] = $accountLike->request_id;  
+                    }                    
+                }
+              
+                foreach($account->instagramFollowing()->get() as $accountFollow) {
+                    if ($accountFollow->status == 'confirmed' or $accountFollow->status == 'pending') {
+                        $followQuest = UserRequest::where('type', 'follow')->where('insta_target', $accountFollow->insta_target)->first();
+                        if (!empty($followQuest)) {
+                            $questsMade[] = $followQuest->id;
+                        }
+                    }                    
+                }
+              
+            }     
 
-            $requests = UserRequest::whereNotIn('insta_target', $instaAccounts)->with('targetUserInsta')->get();
+            $requests = UserRequest::whereNotIn('insta_target', $instaAccounts)
+                ->whereNotIn('id', $questsMade)
+                ->where('active', 1)
+                ->with('targetUserInsta')->inRandomOrder()->limit(6)->get();
           
             foreach ($requests as $userInstaRequest) {
                 $targetUser = $userInstaRequest->targetUserInsta()->first();
@@ -48,8 +69,37 @@ class UserRequestsController extends Controller
                 }
               
             }
-            // $result['data'] = $requests->toArray();
+            
             $result['data'] = $filteredRequests;
+          
+        } catch (\Exception $e) {
+            $result['success'] = false;
+            $result['message'] = $e->getMessage();
+        }    
+      
+        return response()->json($result, 200);
+    }
+  
+    public function deleteLikeRequest(Request $request)
+    {      
+        $result = array(
+            'success' => true,
+            'message' => '',
+            'data'    => []
+        );
+      
+        $request->validate([
+            'idRequest' => 'required'
+        ]);
+      
+        try {
+            
+            $user = Auth::user();
+            
+            $requestLike = UserRequest::where('id', $request->idRequest)->first();
+            $requestLike->delete();
+            
+            $result['message'] = 'Operação realizada com sucesso.';
           
         } catch (\Exception $e) {
             $result['success'] = false;
@@ -96,30 +146,57 @@ class UserRequestsController extends Controller
           
             if ($type == 'follow') {
                   
-                $requestItem = UserRequest::where('insta_target', $idInstaTarget)->where('type', $type)->first();               
+                $requestItem = UserRequest::where('insta_target', $idInstaTarget)->where('type', $type)->first();            
+              
+                if (empty($requestItem)) {
+                    $requestItem = new UserRequest();                
+                } 
+
+                $requestItem->insta_target = $idInstaTarget;
+                $requestItem->type = $type;
+                $requestItem->points = $points;
+                $requestItem->post_url = empty($post_url) ? null : $post_url;
+                $requestItem->active = $activate == true ? 1 : 0;
+                $requestItem->save();   
+              
+                if ($activate == 0) {
+                    $result['message'] = "Operação realizada com sucesso. Não se esqueça de ativar a promoção para ganhar seguidores.";
+                }
                 
             } else if ($type == 'like') {
                 $post_url = $request->post_url;
+                $post_img = $request->post_img;
                 
                 if (empty($post_url)) {
                     throw new \Exception('Post para curtidas inválido.');
                 }
               
                 $requestItem = UserRequest::where('insta_target', $idInstaTarget)->where('type', $type)->where('post_url', $post_url)->first(); 
+              
+                if (empty($requestItem)) {
+                    $requestItem = new UserRequest();                
+                } 
+              
+                if ($activate) {
+                    $requestItem->insta_target = $idInstaTarget;
+                    $requestItem->type = $type;
+                    $requestItem->points = $points;
+                    $requestItem->post_url = empty($post_url) ? null : $post_url;
+                    $requestItem->post_img = empty($post_img) ? null : $post_img;
+                    $requestItem->active = $activate == true ? 1 : 0;
+                    $requestItem->save();   
+                } else {
+                    $requestsFollowInsta = $accountInfo->instagramRequests()->where('type', $type)->get();
+                    foreach ($requestsFollowInsta as $itemRequest) {
+                        $itemRequest->active = 0;
+                        $itemRequest->save();
+                    }
+                  
+                    $result['message'] = "Todas os pedidos de curtida foram cancelados.";
+                }
+      
+               
             }
-          
-            if (empty($requestItem)) {
-                $requestItem = new UserRequest();                
-            } 
-
-            $requestItem->insta_target = $idInstaTarget;
-            $requestItem->type = $type;
-            $requestItem->points = $points;
-            $requestItem->post_url = empty($post_url) ? null : $post_url;
-            $requestItem->active = $activate == true ? 1 : 0;
-            $requestItem->save();            
-            
-          
         } catch (\Exception $e) {
             $result['success'] = false;
             $result['message'] = $e->getMessage();

@@ -4,9 +4,11 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\UserLike;
+use App\UserRequest;
 use App\UserInstagram;
 use Phpfastcache\Helper\Psr16Adapter;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class VerifyLike extends Command
 {
@@ -46,7 +48,7 @@ class VerifyLike extends Command
         $date->modify('-10 minutes');
         $formatted_date = $date->format('Y-m-d H:i:s');
         // 'updated_at', '>=', $formatted_date
-        $likes = UserLike::where('status', 'pending')->get();
+        $likes = UserLike::where('status', 'pending')->limit(15)->get();
       
         if (sizeof($likes) > 0) {
 
@@ -67,7 +69,10 @@ class VerifyLike extends Command
                 try {
                   
                   $minutes = 15;
-                  $postUrl = $like->request()->first()->post_url;
+                  $requestUrlItem = UserRequest::where('id', $like->request_id)->first();
+                  $users_requests = DB::table('user_requests')->select('post_url')->where('id', $like->request_id)->first();
+                  $postUrl = $users_requests->post_url;
+                  
                   $media = Cache::remember('getMediaByUrl-'.$postUrl, $minutes*60, function () use ($postUrl, $instagram) {
                       $retorno = $instagram->getMediaByUrl($postUrl);
                       sleep(5);

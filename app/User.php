@@ -78,7 +78,7 @@ class User extends Authenticatable
         $date = \Carbon\Carbon::today()->subDays(7);
 
         foreach($instaAccounts as $account) {
-            $confirmedLikes += $account->instagramLikes()->where('status', 'confirmed')
+            $confirmedLikes += $account->instagramLikesReceived()->where('status', 'confirmed')
                       ->where('created_at', '>=', $date)->count();
         }
       
@@ -150,5 +150,10 @@ class User extends Authenticatable
       
         return $total;
       
+    }
+  
+    public function routeNotificationForSlack($notification)
+    {
+        return 'https://hooks.slack.com/services/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';
     }
 }

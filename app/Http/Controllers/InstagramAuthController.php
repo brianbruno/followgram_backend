@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\UserInstagram;
-use Illuminate\Support\Facades\Crypt;
+use App\UserRequest;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
+use App\Notifications\UserAccountAdd;
 
 class InstagramAuthController extends Controller
 {
@@ -29,7 +31,9 @@ class InstagramAuthController extends Controller
         $username = $request->username;
       
         $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
-        $confirmKey = Crypt::encryptString('FollowGram'.$username.$user->id);
+      
+        // $confirmKey = Crypt::encryptString('FollowGram'.$username.$user->id);
+        $confirmKey = Str::random(20);
         
         if (empty($userInsta)) {
             $userInsta = new UserInstagram();
@@ -72,10 +76,15 @@ class InstagramAuthController extends Controller
           
             $comments = $instagram->getMediaCommentsByCode($shortCode);
             sleep(5);
+          
+            // pega o cod de confirmacao
+            $codConfirm = substr($userInsta->confirm_key, -8);
+          
             // tem comentarios
             if (sizeof($comments) > 0) {
                 // pega o ultimo comentario
                 $lastComment = $comments[sizeof($comments) - 1];
+                //dd($lastComment);die;
                 // compara com a chave de confirmacao
                 if ($lastComment->getText() == $userInsta->confirm_key) {
                     $userInsta->confirmed = true;
@@ -88,6 +97,14 @@ class InstagramAuthController extends Controller
                     $userInsta->is_verified = $accountInsta->isVerified(); 
                     $userInsta->save();
                     $retorno['success'] = true;
+                  
+                    $userNotify = array(
+                        'username' => $user->name,
+                        'ig' => $userInsta->username,
+                        'image' => $userInsta->profile_pic_url
+                    );
+                      
+                    $user->notify(new UserAccountAdd($userNotify));
                 } else {
                     $retorno['message'] = "Ainda não conseguimos verificar sua conta! Confirme o código e tente novamente. Contas privadas não são aceitas.";
                 }
@@ -144,10 +161,14 @@ class InstagramAuthController extends Controller
           $mediaArray = [];
           
           foreach ($medias as $media) {
-              $mediaArray[] = array(
-                  'link'    => $media->getLink(),
-                  'imgUrl'  => $media->getImageThumbnailUrl(),
-              );              
+              $requestAlreadyMade = UserRequest::where('post_url', $media->getLink())->first();
+              if (empty($requestAlreadyMade)) {
+                  $mediaArray[] = array(
+                      'caption' => $media->getCaption(),
+                      'link'    => $media->getLink(),
+                      'imgUrl'  => $media->getImageThumbnailUrl(),
+                  );    
+              }                          
           }
           
           $retorno['data'] = $mediaArray;          

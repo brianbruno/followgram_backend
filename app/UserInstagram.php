@@ -30,6 +30,11 @@ class UserInstagram extends Model
         return $this->hasMany('App\UserFollow', 'insta_following', 'id');
     }
   
+    public function instagramLikesReceived()
+    {
+        return $this->hasMany('App\UserLike', 'insta_target', 'id');
+    }
+  
     public function instagramLikes()
     {
         return $this->hasMany('App\UserLike', 'insta_liking', 'id');
@@ -53,13 +58,35 @@ class UserInstagram extends Model
   
     public function getIsRequestLikeAttribute()
     {
-        $request = $this->instagramRequests->where('type', 'comment')->where('active', 1)->first();
+        $request = $this->instagramRequests->where('type', 'like')->where('active', 1)->first();
       
         if (empty($request)) {
             return false;
         } else {
             return true;
         }
+    }
+  
+    public function getQuestsMade() {
+      
+        $questsMade = [];
+
+        foreach($this->instagramLikes()->get() as $accountLike) {
+            if ($accountLike->status == 'confirmed' or $accountLike->status == 'pending') {
+                $questsMade[] = $accountLike->request_id;  
+            }                    
+        }
+
+        foreach($this->instagramFollowing()->get() as $accountFollow) {
+            if ($accountFollow->status == 'confirmed' or $accountFollow->status == 'pending') {
+                $followQuest = UserRequest::where('type', 'follow')->where('insta_target', $accountFollow->insta_target)->first();
+                if (!empty($followQuest)) {
+                    $questsMade[] = $followQuest->id;
+                }
+            }                    
+        }
+      
+        return $questsMade;
     }
 
 }

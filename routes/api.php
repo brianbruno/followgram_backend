@@ -35,6 +35,15 @@ Route::group([
     });
 });
 
+Route::group([    
+    'namespace' => 'Auth',
+    'prefix' => 'password'
+], function () {    
+    Route::post('create', 'PasswordResetController@create');
+    Route::get('find/{token}', 'PasswordResetController@find');
+    Route::post('reset', 'PasswordResetController@reset');
+});
+
 Route::group([
   'middleware' => 'auth:api'
 ], function() {
@@ -60,6 +69,8 @@ Route::group([
     ], function () {
         Route::post('get', 'UserRequestsController@getResquests')->name('getrequests');
         Route::post('add', 'UserRequestsController@addRequest')->name('addrequests');
+      
+        Route::post('deletelikerequest', 'UserRequestsController@deleteLikeRequest')->name('deleterequest');
     });
   /*
     Route::group([

@@ -8,6 +8,8 @@ use App\UserFollow;
 use App\UserInstagram;
 use App\UserRequest;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use App\Notifications\UserAction;
 
 class FollowController extends Controller
 {
@@ -39,6 +41,7 @@ class FollowController extends Controller
             $idQuest = $request->idQuest;
           
             $questRequest = UserRequest::where('id', $idQuest)->first();
+            //$questRequest = DB::table('user_requests')->select('insta_target', 'points', 'active')->where('id', $idQuest)->first();
             if (empty($questRequest)) {
                 throw new \Exception('Esta oferta não existe.');
             }
@@ -49,11 +52,11 @@ class FollowController extends Controller
             if ($questRequest->active == 0) {
                 throw new \Exception('Esta oferta não está mais ativa.');
             }           
+            
+            $userInstaTarget = UserInstagram::where('id', $idFollowTarget)->first();
           
             // verifica se já existe uma quest de seguir essa pessoa.
             if (empty($connection)) {
-                
-                $userInstaTarget = UserInstagram::where('id', $idFollowTarget)->first();
               
                 if ($userInstaTarget->user_id == $user->id) {
                     throw new \Exception('Não é permitido seguir a si mesmo.');
@@ -67,6 +70,14 @@ class FollowController extends Controller
                 $userFollow->save();
               
                 $result['message'] = 'Operação realizada com sucesso.';
+              
+                $userNotify = array(
+                    'username' => $user->name,
+                    'ig' => $userInstaTarget->username,
+                    'action' => 'follow'
+                );
+
+                $user->notify(new UserAction($userNotify));
             } else {
               
                 // verifica se a quest foi cancelada
@@ -76,6 +87,14 @@ class FollowController extends Controller
                     $connection->save();
                   
                     $result['message'] = 'Operação realizada com sucesso.';
+                  
+                    $userNotify = array(
+                        'username' => $user->name,
+                        'ig' => $userInstaTarget->username,
+                        'action' => 'follow'
+                    );
+
+                    $user->notify(new UserAction($userNotify));
                 } else {
                     throw new \Exception('Você já realizou essa tarefa :(');  
                 }

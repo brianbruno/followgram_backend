@@ -8,6 +8,7 @@ use App\UserLike;
 use App\UserInstagram;
 use App\UserRequest;
 use Illuminate\Support\Facades\Crypt;
+use App\Notifications\UserAction;
 
 class LikeController extends Controller
 {
@@ -54,10 +55,10 @@ class LikeController extends Controller
                 throw new \Exception('Esta oferta não está mais ativa.');
             }           
           
+            $userInstaTarget = UserInstagram::where('id', $idLikeTarget)->first();
+          
             // verifica se já existe uma quest de seguir essa pessoa.
             if (empty($connection)) {
-                
-                $userInstaTarget = UserInstagram::where('id', $idLikeTarget)->first();
               
                 if ($userInstaTarget->user_id == $user->id) {
                     throw new \Exception('Não é permitido curtir suas próprias fotos.');
@@ -72,6 +73,14 @@ class LikeController extends Controller
                 $userFollow->save();
               
                 $result['message'] = 'Operação realizada com sucesso.';
+              
+                $userNotify = array(
+                    'username' => $user->name,
+                    'ig' => $userInstaTarget->username,
+                    'action' => 'like'
+                );
+
+                $user->notify(new UserAction($userNotify));
             } else {
               
                 // verifica se a quest foi cancelada
@@ -81,6 +90,14 @@ class LikeController extends Controller
                     $connection->save();
                   
                     $result['message'] = 'Operação realizada com sucesso.';
+                  
+                    $userNotify = array(
+                        'username' => $user->name,
+                        'ig' => $userInstaTarget->username,
+                        'action' => 'like'
+                    );
+
+                    $user->notify(new UserAction($userNotify));
                 } else {
                     throw new \Exception('Você já realizou essa tarefa :(');  
                 }

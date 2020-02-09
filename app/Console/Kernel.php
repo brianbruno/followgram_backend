@@ -27,6 +27,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('verify:follow')->everyFiveMinutes();
         $schedule->command('verify:like')->everyFiveMinutes();
         $schedule->command('update:accounts')->everyThirtyMinutes();
+        //$schedule->command('make:magic')->everyFiveMinutes();
     }
 
     /**

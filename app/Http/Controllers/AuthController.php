@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\User;
+use App\Notifications\UserRegister;
 
 class AuthController extends Controller
 {
@@ -29,6 +30,14 @@ class AuthController extends Controller
             'password' => bcrypt($request->password)
         ]);
         $user->save();
+      
+        $userNotify = array(
+          'name' => $request->name,
+          'email' => $request->email,
+        );
+      
+        $user->notify(new UserRegister($userNotify));
+      
         return response()->json([
             'message' => 'Successfully created user!'
         ], 201);

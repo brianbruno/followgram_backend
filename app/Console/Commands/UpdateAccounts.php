@@ -43,7 +43,7 @@ class UpdateAccounts extends Command
         $accounts = UserInstagram::where('confirmed', 1)->get();
       
         $this->line('Conectando com o Instagram');
-        $instagram = \InstagramScraper\Instagram::withCredentials('marketingfollowgram', 'marketing2020', new Psr16Adapter('Files'));
+        $instagram = \InstagramScraper\Instagram::withCredentials('gustavo.borges.1001', 'marketing2020', new Psr16Adapter('Files'));
         $instagram->login();
         sleep(2);
         $this->info('Conectado.');
