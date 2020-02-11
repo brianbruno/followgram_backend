@@ -1,0 +1,4 @@
+SELECT name, points  FROM user_points
+JOIN users 
+ON users.id = user_points.user_id
+ORDER BY points DESC

@@ -86,5 +86,11 @@ Route::group([
         Route::post('home', 'LikeController@test');
         Route::post('photolike', 'LikeController@photolikeAdd')->name('addlikes');     
     });
+  
+    Route::group([
+      'prefix' => 'help'
+    ], function () {
+        Route::post('add', 'HelpController@addHelp')->name('addHelp');   
+    });
 
 });

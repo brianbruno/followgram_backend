@@ -54,6 +54,7 @@ class FollowController extends Controller
             }           
             
             $userInstaTarget = UserInstagram::where('id', $idFollowTarget)->first();
+            $userInstaDoing = UserInstagram::where('id', $idInstaFollowing)->first();
           
             // verifica se já existe uma quest de seguir essa pessoa.
             if (empty($connection)) {
@@ -72,7 +73,8 @@ class FollowController extends Controller
                 $result['message'] = 'Operação realizada com sucesso.';
               
                 $userNotify = array(
-                    'username' => $user->name,
+                    'name' => $user->name,
+                    'username' => $userInstaDoing->username,
                     'ig' => $userInstaTarget->username,
                     'action' => 'follow'
                 );
@@ -89,7 +91,8 @@ class FollowController extends Controller
                     $result['message'] = 'Operação realizada com sucesso.';
                   
                     $userNotify = array(
-                        'username' => $user->name,
+                        'name' => $user->name,
+                        'username' => $userInstaDoing->username,
                         'ig' => $userInstaTarget->username,
                         'action' => 'follow'
                     );

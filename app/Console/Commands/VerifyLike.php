@@ -73,10 +73,10 @@ class VerifyLike extends Command
                   $users_requests = DB::table('user_requests')->select('post_url')->where('id', $like->request_id)->first();
                   $postUrl = $users_requests->post_url;
                   
-                  $media = Cache::remember('getMediaByUrl-'.$postUrl, $minutes*60, function () use ($postUrl, $instagram) {
+                  $media = Cache::remember('getMediaByUrl-'.$postUrl, $minutes*60, function () use ($postUrl, $instagram) {                      
                       $retorno = $instagram->getMediaByUrl($postUrl);
                       sleep(5);
-                      return $retorno;
+                      return $retorno;                     
                   });
                   
                   $minutes = 2;
@@ -115,7 +115,13 @@ class VerifyLike extends Command
                   }
                   
                 } catch (\InstagramScraper\Exception\InstagramException $e) {
-                      $this->line('Erro: '.$e->getMessage());
+                    $like->status = 'canceled';
+                    $like->save();
+                    $this->line('Erro: '.$e->getMessage());
+                } catch (\Exception $e) {
+                    $like->status = 'canceled';
+                    $like->save();
+                    $this->line('Erro: '.$e->getMessage());
                 }
                 
             }

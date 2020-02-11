@@ -3,9 +3,12 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\Notifiable;
 
 class UserInstagram extends Model
 {
+  
+    use Notifiable;
   
     protected $appends = ['is_request_follow', 'is_request_like'];
   
@@ -87,6 +90,11 @@ class UserInstagram extends Model
         }
       
         return $questsMade;
+    }
+  
+    public function routeNotificationForSlack($notification)
+    {
+        return 'https://hooks.slack.com/services/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';
     }
 
 }

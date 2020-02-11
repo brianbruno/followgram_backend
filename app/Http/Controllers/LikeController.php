@@ -56,6 +56,7 @@ class LikeController extends Controller
             }           
           
             $userInstaTarget = UserInstagram::where('id', $idLikeTarget)->first();
+            $userInstaDoing = UserInstagram::where('id', $idInstaLiking)->first();
           
             // verifica se já existe uma quest de seguir essa pessoa.
             if (empty($connection)) {
@@ -75,7 +76,8 @@ class LikeController extends Controller
                 $result['message'] = 'Operação realizada com sucesso.';
               
                 $userNotify = array(
-                    'username' => $user->name,
+                    'name' => $user->name,
+                    'username' => $userInstaDoing->username,
                     'ig' => $userInstaTarget->username,
                     'action' => 'like'
                 );
@@ -92,7 +94,8 @@ class LikeController extends Controller
                     $result['message'] = 'Operação realizada com sucesso.';
                   
                     $userNotify = array(
-                        'username' => $user->name,
+                        'name' => $user->name,
+                        'username' => $userInstaDoing->username,
                         'ig' => $userInstaTarget->username,
                         'action' => 'like'
                     );

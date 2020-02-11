@@ -37,23 +37,19 @@ class UserRequestsController extends Controller
           
             foreach($user->instagramAccounts()->get() as $account) {
                 $instaAccounts[] = $account->id;
-                
-                foreach($account->instagramLikes()->get() as $accountLike) {
-                    if ($accountLike->status == 'confirmed' or $accountLike->status == 'pending') {
-                        $questsMade[] = $accountLike->request_id;  
-                    }                    
-                }
               
-                foreach($account->instagramFollowing()->get() as $accountFollow) {
-                    if ($accountFollow->status == 'confirmed' or $accountFollow->status == 'pending') {
-                        $followQuest = UserRequest::where('type', 'follow')->where('insta_target', $accountFollow->insta_target)->first();
-                        if (!empty($followQuest)) {
-                            $questsMade[] = $followQuest->id;
-                        }
-                    }                    
-                }
-              
+                $questsMade = array_merge($questsMade, $account->getQuestsMade());              
             }     
+          
+            /*$userRequests = DB::table('user_requests')
+                    ->select('user_requests.post_url', 'user_requests.id', 'user_requests.insta_target', 'user_requests.points', 'user_points.points as user_points')
+                    ->join('user_insta', 'user_requests.insta_target', '=', 'user_insta.id')   
+                    ->join('user_points', 'user_insta.user_id', '=', 'user_points.id')   
+                    ->where('user_points.points', '>', 0)
+                    ->whereNotIn('user_requests.id', $questsMade)
+                    ->whereNotIn('user_requests.insta_target', $instaAccounts)
+                    ->where('user_requests.active', 1)
+                    ->inRandomOrder()->limit(6)->get();*/
 
             $requests = UserRequest::whereNotIn('insta_target', $instaAccounts)
                 ->whereNotIn('id', $questsMade)
@@ -64,7 +60,7 @@ class UserRequestsController extends Controller
                 $targetUser = $userInstaRequest->targetUserInsta()->first();
                 $userSystemTarget = $targetUser->user()->first();
                 
-                if ($userSystemTarget->points >= -15) {
+                if ($userSystemTarget->points >= -15 && $targetUser->is_private == 0) {
                     $filteredRequests[] = $userInstaRequest;
                 }
               

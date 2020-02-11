@@ -8,20 +8,20 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\SlackMessage;
 
-class UserAction extends Notification
+class BotInformation extends Notification
 {
     use Queueable;
   
-    protected $user;
+    protected $data;
 
     /**
      * Create a new notification instance.
      *
      * @return void
      */
-    public function __construct($user)
+    public function __construct($data)
     {
-        $this->user = $user;
+        $this->data = $data;
     }
 
     /**
@@ -48,22 +48,25 @@ class UserAction extends Notification
                     ->action('Notification Action', url('/'))
                     ->line('Thank you for using our application!');
     }
-    
+  
+  
     public function toSlack($notifiable)
     {
-        $user = $this->user;
+        $data = $this->data;
+        $url = "https://insta.brian.place/inativarbot/".$data['botId'];
         return (new SlackMessage)
+                    ->to('#bot')
                     ->success()
-                    ->content('Uma nova ação foi feita!')
-                    ->attachment(function ($attachment) use ($user) {
-                              $attachment->title("Informações da Ação")
+                    ->attachment(function ($attachment) use ($data, $url) {
+                              $attachment->title("Remover bot ".$data['username'], $url)
                                          ->fields([
-                                              'Nome:' => $user['name'],
-                                              'Usuário:' => $user['username'],
-                                              'IG Alvo:' => $user['ig'],
-                                              'Ação:' => $user['action'],
+                                              'IG:' => $data['username'],
+                                              'Ação:' => $data['action'],
+                                              'Concluídas:' => $data['made'],
+                                              'Não concluídas:' => $data['notMade']                                           
                                           ]);
-                          });
+                          })
+                    ->content('Total de quests feitas: '.$data['questsMade']);
     }
 
     /**

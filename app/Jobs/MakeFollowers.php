@@ -11,6 +11,8 @@ use App\UserFollow;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\DB;
 use App\UserInstagram;
+use App\Notifications\BotInformation;
+use App\User;
 
 class MakeFollowers implements ShouldQueue
 {
@@ -50,11 +52,26 @@ class MakeFollowers implements ShouldQueue
                     ->where('user_requests.active', 1)
                     ->inRandomOrder()->limit(3)->get();
               
+                echo "Bot: ". $bot->username ."\n";
                 echo "Requests: ". sizeof($userRequests) ."\n";
+          
+                $requestsDone = 0;
+                $client = new Client();
 
                 if (sizeof($userRequests) > 0) {
                     
-                    try {
+                    // teste de conectividade
+                    $response = $client->get('http://api.ganheseguidores.com/test/'.$bot->username.'/'.$defaultPassword);
+                    $resposta = $response->getBody()->getContents();
+                    $resposta = json_decode($resposta);
+                  
+                    if ($resposta->status) {
+                        echo "Instagram conectado com sucesso. \n";
+                    } else {
+                        echo "Erro ao conectar Instagram. \n";
+                    }
+                  
+                    try {                      
 
                       foreach ($userRequests as $userRequest) { 
 
@@ -67,9 +84,9 @@ class MakeFollowers implements ShouldQueue
                             $url = "http://api.ganheseguidores.com/follow_user";
    
                             $requestBody = array();
-                            $requestBody['username'] = "Claudio.passin";
+                            $requestBody['username'] = $bot->username;
                             $requestBody['password'] = $defaultPassword;
-                            $requestBody['user_insta_target'] = "marketingfollowgram";
+                            $requestBody['user_insta_target'] = $instagramUserRequesting->username;
                         
                             $client = new Client();
                         
@@ -77,25 +94,40 @@ class MakeFollowers implements ShouldQueue
                             //$response = $request->send(); 
                         
                             $resposta = $response->getBody()->getContents();
+                            $resposta = json_decode($resposta);
                         
-                            dd($resposta);die;
+                            if ($resposta->status) {
+                                $userFollow = new UserFollow();
+                                $userFollow->insta_target = $userRequest->insta_target;
+                                $userFollow->insta_following = $instagramUser->id;
+                                $userFollow->points = $userRequest->points;
+                                $userFollow->status = 'pending';
+                                $userFollow->save();
 
-                        
-
-                            $userFollow = new UserFollow();
-                            $userFollow->insta_target = $userRequest->insta_target;
-                            $userFollow->insta_following = $instagramUser->id;
-                            $userFollow->points = $userRequest->points;
-                            $userFollow->status = 'pending';
-                            $userFollow->save();
-                            
-                            sleep(rand(4, 9));
-
+                                sleep(rand(4, 9));
+                              
+                                echo "Conta seguida com sucesso. \n";
+                              
+                                $requestsDone++;
+                            } else {
+                                echo "Erro ao seguir conta. \n";
+                            }
                       }
                     } catch (\Exception $e) {
                         echo "Ocorreu um erro na execução dessa task. Código: ".$userRequest->id."\n";
                         echo $e->getMessage()."\n";
                     } 
+                  
+                    $userNotify = array(
+                        'botId' => $instagramUser->id,
+                        'username' => $instagramUser->username,
+                        'action' => 'follow',
+                        'made' => $requestsDone,
+                        'notMade' => sizeof($userRequests)-$requestsDone,
+                        'questsMade' => sizeof($questsMade)
+                    );
+                    
+                    $instagramUser->notify(new BotInformation($userNotify));
                 }
     }
     }

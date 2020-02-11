@@ -13,6 +13,9 @@ use App\UserInstagram;
 use App\UserLike;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use GuzzleHttp\Client;
+use App\Notifications\BotInformation;
+use App\User;
 
 class MakeLikes implements ShouldQueue
 {
@@ -54,22 +57,13 @@ class MakeLikes implements ShouldQueue
                     ->where('user_requests.type', 'like')
                     ->where('user_requests.active', 1)
                     ->inRandomOrder()->limit(3)->get();
-
-                /*$userRequests = UserRequest::whereNotIn('id', $questsMade)
-                    ->where('type', 'like')
-                    ->where('active', 1)
-                    ->with('targetUserInsta')->inRandomOrder()->limit(5)->get();*/
               
+                echo "Bot: ". $bot->username ."\n";
                 echo "Requests: ". sizeof($userRequests) ."\n";
+                $requestsDone = 0;
 
                 if (sizeof($userRequests) > 0) {
-
-                    echo "Conectando com o Instagram - Conta: ".$instagramUser->username." \n";
-                    $instagram = \InstagramScraper\Instagram::withCredentials($instagramUser->username, $defaultPassword, $cache);
-                    $instagram->login();
-                    sleep(2);
-                    echo "Conectado. \n";
-                    
+                  
                     try {
 
                       foreach ($userRequests as $userRequest) { 
@@ -77,32 +71,55 @@ class MakeLikes implements ShouldQueue
                             $instagramUserRequesting = UserInstagram::where('id', $userRequest->insta_target)->first();
 
                             echo "Username: ". $instagramUserRequesting->username ."\n";
-
-                            $minutes = 15;
-
-                            $media = Cache::remember('getMediaByUrl-'.$userRequest->post_url, $minutes*60, function () use ($userRequest, $instagram) {
-                                $retorno = $instagram->getMediaByUrl($userRequest->post_url);
-                                sleep(rand(5, 10));
-                                return $retorno;
-                            }); 
                         
                             // $media = $instagram->getMediaByUrl('https://www.instagram.com/p/B6d8xc6o6DS/');                          
-
-                            $instagram->like($media->getId());
-
-                            $userLike = new UserLike();
-                            $userLike->request_id = $userRequest->id;
-                            $userLike->insta_target = $userRequest->insta_target;
-                            $userLike->insta_liking = $instagramUser->id;
-                            $userLike->status = 'pending';
-                            $userLike->points = $userRequest->points;
-                            $userLike->save();
-                            sleep(rand(4, 9));
+                            $url = "http://api.ganheseguidores.com/like_post";    
+                        
+                            $requestBody = array();
+                            $requestBody['username'] = $bot->username;
+                            $requestBody['password'] = $defaultPassword;
+                            $requestBody['media_link'] = $userRequest->post_url;
+                        
+                            $client = new Client();
+                        
+                            $response = $client->post($url,  ['json'=>$requestBody]);
+                        
+                            $resposta = $response->getBody()->getContents();
+                            $resposta = json_decode($resposta);
+                        
+                            if ($resposta->status) {
+                                $userLike = new UserLike();
+                                $userLike->request_id = $userRequest->id;
+                                $userLike->insta_target = $userRequest->insta_target;
+                                $userLike->insta_liking = $instagramUser->id;
+                                $userLike->status = 'pending';
+                                $userLike->points = $userRequest->points;
+                                $userLike->save();
+                                sleep(rand(4, 9));
+                              
+                                echo "Publicação curtida com sucesso. \n";
+                                
+                                $requestsDone++;
+                            } else {
+                                echo "Erro ao curtir publicação. \n";
+                            }                            
 
                       }
                     } catch (\Exception $e) {
                         echo "Ocorreu um erro na execução dessa task. Código: ".$userRequest->id."\n";
+                        echo $e->getMessage();
                     } 
+                  
+                    $userNotify = array(
+                        'botId' => $instagramUser->id,
+                        'username' => $instagramUser->username,
+                        'action' => 'like',
+                        'made' => $requestsDone,
+                        'notMade' => sizeof($userRequests)-$requestsDone,
+                        'questsMade' => sizeof($questsMade) 
+                    );
+                    
+                    $instagramUser->notify(new BotInformation($userNotify));
                 }                    
             
         }
