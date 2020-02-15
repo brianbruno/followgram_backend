@@ -54,7 +54,7 @@ class UserRequestsController extends Controller
             $requests = UserRequest::whereNotIn('insta_target', $instaAccounts)
                 ->whereNotIn('id', $questsMade)
                 ->where('active', 1)
-                ->with('targetUserInsta')->inRandomOrder()->limit(6)->get();
+                ->with('targetUserInsta')->get();
           
             foreach ($requests as $userInstaRequest) {
                 $targetUser = $userInstaRequest->targetUserInsta()->first();

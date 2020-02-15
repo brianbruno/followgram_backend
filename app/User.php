@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
 
+
 class User extends Authenticatable
 {
     use Notifiable, HasApiTokens;
@@ -48,6 +49,11 @@ class User extends Authenticatable
     public function points()
     {
         return $this->hasMany('App\UserPoints');
+    }
+  
+    public function extract()
+    {
+        return $this->hasMany('App\UserExtract', 'user_id', 'id');
     }
   
     public function getNewFollowersAttribute()
@@ -106,7 +112,7 @@ class User extends Authenticatable
       
     }
   
-    public function addPoints($value) {
+    public function addPoints($value, $description) {
         $points = $this->points()->first();
   
         if (empty($points)) {
@@ -118,9 +124,16 @@ class User extends Authenticatable
         }
       
         $points->save();
+      
+        $extract = new UserExtract();
+        $extract->user_id = $this->id;
+        $extract->description = $description;
+        $extract->type = 'positive';
+        $extract->points = $value;
+        $extract->save();
     }
   
-    public function removePoints($value) {
+    public function removePoints($value, $description) {
         $result = false;
       
         $points = $this->points()->first();
@@ -134,6 +147,13 @@ class User extends Authenticatable
         }
         
         $points->save(); 
+      
+        $extract = new UserExtract();
+        $extract->user_id = $this->id;
+        $extract->description = $description;
+        $extract->type = 'negative';
+        $extract->points = $value;
+        $extract->save();
 
         $result = true;
       

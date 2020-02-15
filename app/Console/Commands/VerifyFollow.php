@@ -83,10 +83,12 @@ class VerifyFollow extends Command
                           $follow->status = 'confirmed';
                           $follow->save();
 
+                          $descriptionIn = 'Você seguiu '. $targetfollow->username.'.';
+                          $descriptionOut = $following->username . ' seguiu você.';
                           // credita os pontos
-                          $following->user()->first()->addPoints($follow->points);
+                          $following->user()->first()->addPoints($follow->points, $descriptionIn);
                           // debita os pontos
-                          $targetfollow->user()->first()->removePoints($follow->points);
+                          $targetfollow->user()->first()->removePoints($follow->points, $descriptionOut);
 
                           break;
                       }
@@ -103,7 +105,8 @@ class VerifyFollow extends Command
                       $follow->status = 'canceled';
                       $follow->save();
                       // penaliza usuário responsavel por problemas em 3 pontos.
-                      $targetfollow->user()->first()->removePoints(3);
+                      $descriptionOut = 'Você causou um erro no processo. Nunca bloqueie sua conta com promoções ativas.';
+                      $targetfollow->user()->first()->removePoints(3, $descriptionOut);
                       $accountsInsta = $targetfollow->user()->first()->instagramAccounts()->get();
                   
                       foreach ($accountsInsta as $accountInsta) {

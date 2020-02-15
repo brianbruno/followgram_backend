@@ -95,11 +95,13 @@ class VerifyLike extends Command
 
                           $like->status = 'confirmed';
                           $like->save();
-
+                        
+                          $descriptionIn = 'Você curtiu a foto de '. $targetLike->username.'.';
+                          $descriptionOut = $liking->username . ' curtiu sua foto.';
                           // credita os pontos
-                          $liking->user()->first()->addPoints($like->points);
+                          $liking->user()->first()->addPoints($like->points, $descriptionIn);
                           // debita os pontos
-                          $targetLike->user()->first()->removePoints($like->points);
+                          $targetLike->user()->first()->removePoints($like->points, $descriptionOut);
 
                           break;
                       }                   

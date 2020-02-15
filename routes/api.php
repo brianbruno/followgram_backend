@@ -32,6 +32,7 @@ Route::group([
     ], function() {
         Route::get('logout', 'AuthController@logout');
         Route::post('user', 'AuthController@user');
+        Route::post('extract', 'AuthController@extract');
     });
 });
 

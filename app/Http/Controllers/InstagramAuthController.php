@@ -59,58 +59,69 @@ class InstagramAuthController extends Controller
         ]);
       
         $retorno = array(
-            'success' => false
+            'success' => false,
+            'message' => ''
         );
       
-        $user = Auth::user();
-        $username = $request->username;
-      
-        $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
-        
-        $instagram = new \InstagramScraper\Instagram();
-      
-        $medias = $instagram->getMedias($userInsta->username, 1);
-        
-        if (sizeof($medias) > 0) {
-            $shortCode = $medias[0]['shortCode'];
-          
-            $comments = $instagram->getMediaCommentsByCode($shortCode);
-            sleep(5);
-          
-            // pega o cod de confirmacao
-            $codConfirm = substr($userInsta->confirm_key, -8);
-          
-            // tem comentarios
-            if (sizeof($comments) > 0) {
-                // pega o ultimo comentario
-                $lastComment = $comments[sizeof($comments) - 1];
-                //dd($lastComment);die;
-                // compara com a chave de confirmacao
-                if ($lastComment->getText() == $userInsta->confirm_key) {
-                    $userInsta->confirmed = true;
-                    $accountInsta = $instagram->getAccount($userInsta->username);   
-                    $userInsta->profile_pic_url = $accountInsta->getProfilePicUrl();
-                    $userInsta->external_url = $accountInsta->getExternalUrl();
-                    $userInsta->full_name = $accountInsta->getFullName();
-                    $userInsta->biography = $accountInsta->getBiography();                  
-                    $userInsta->is_private = $accountInsta->isPrivate();
-                    $userInsta->is_verified = $accountInsta->isVerified(); 
-                    $userInsta->save();
-                    $retorno['success'] = true;
-                  
-                    $userNotify = array(
-                        'username' => $user->name,
-                        'ig' => $userInsta->username,
-                        'image' => $userInsta->profile_pic_url
-                    );
-                      
-                    $user->notify(new UserAccountAdd($userNotify));
-                } else {
-                    $retorno['message'] = "Ainda não conseguimos verificar sua conta! Confirme o código e tente novamente. Contas privadas não são aceitas.";
+        try {
+            $user = Auth::user();
+            $username = $request->username;
+
+            $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
+
+            $instagram = new \InstagramScraper\Instagram();
+
+            $medias = $instagram->getMedias($userInsta->username, 1);
+
+            if (sizeof($medias) > 0) {
+                $shortCode = $medias[0]['shortCode'];
+
+                $comments = $instagram->getMediaCommentsByCode($shortCode);
+                sleep(5);
+
+                // pega o cod de confirmacao
+                $codConfirm = substr($userInsta->confirm_key, -8);
+
+                // tem comentarios
+                if (sizeof($comments) > 0) {
+                    // pega o ultimo comentario
+                    $lastComment = $comments[sizeof($comments) - 1];
+                    //dd($lastComment);die;
+                    // compara com a chave de confirmacao
+                    if ($lastComment->getText() == $userInsta->confirm_key) {
+                        $userInsta->confirmed = true;
+                        $accountInsta = $instagram->getAccount($userInsta->username);   
+                        $userInsta->profile_pic_url = $accountInsta->getProfilePicUrl();
+                        $userInsta->external_url = $accountInsta->getExternalUrl();
+                        $userInsta->full_name = $accountInsta->getFullName();
+                        $userInsta->biography = $accountInsta->getBiography();                  
+                        $userInsta->is_private = $accountInsta->isPrivate();
+                        $userInsta->is_verified = $accountInsta->isVerified(); 
+                        $userInsta->save();
+                        $retorno['success'] = true;
+                        $retorno['message'] = "Confirmamos a sua conta!";
+
+                        $userNotify = array(
+                            'username' => $user->name,
+                            'ig' => $userInsta->username,
+                            'image' => $userInsta->profile_pic_url
+                        );
+
+                        $user->notify(new UserAccountAdd($userNotify));
+                    } else {
+                        $retorno['message'] = "Ainda não conseguimos verificar sua conta! Confirme o código e tente novamente. Contas privadas não são aceitas.";
+                    }
                 }
+            } else {
+                throw new \Exception('Essa conta não possui nenhum post ou é privada.');
             }
+
+        } catch (\Exception $e) {
+            $retorno['success'] = false;
+            $retorno['message'] = $e->getMessage();          
         }
       
+       
         return response()->json($retorno, 200);
       
         

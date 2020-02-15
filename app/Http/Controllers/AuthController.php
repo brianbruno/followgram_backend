@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\User;
+use App\UserExtract;
 use App\Notifications\UserRegister;
 
 class AuthController extends Controller
@@ -24,6 +25,25 @@ class AuthController extends Controller
             'email' => 'required|string|email|unique:users',
             'password' => 'required|string|confirmed'
         ]);
+      
+        // adiciona ponto de referidos
+        if (!empty($request->reffer_id)) {
+            $allIps = User::where('ip', $request->reffer_id)->first();
+          
+            if (empty($allIps)) {
+                $userReffer = User::where('id', $request->reffer_id)->first();
+
+                if (!empty($userReffer)) {
+                    if ($userReffer->ip !== $request->getClientIp()) {
+                        $description = 'Usuário cadastrado através de você! Dê as boas vindas para: '.$request->name.'.';
+                        $userReffer->addPoints(50, $description);  
+                    }
+
+                }
+            }
+            
+        }
+      
         $user = new User([
             'name' => $request->name,
             'email' => $request->email,
@@ -100,6 +120,24 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
+        $user = $request->user();
+        $user->ip = $request->getClientIp();
+        $user->save();
+      
         return response()->json($request->user());
+    }
+  
+    public function extract(Request $request) {
+        $user = $request->user();
+      
+        $data = $user->extract()->latest()->limit(30)->get();
+      
+        $retorno = array(
+            'status' => true,
+            'data'   => $data
+        );
+      
+        return response()->json($retorno);
+
     }
 }
