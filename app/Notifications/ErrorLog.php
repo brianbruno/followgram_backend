@@ -6,22 +6,22 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Notifications\Messages\SlackMessage;
 
-class PasswordResetRequest extends Notification
+class ErrorLog extends Notification
 {
     use Queueable;
   
-    protected $token;
-
+    protected $data;
 
     /**
      * Create a new notification instance.
      *
      * @return void
      */
-    public function __construct($token)
+    public function __construct($data)
     {
-        $this->token = $token;
+        $this->data = $data;
     }
 
     /**
@@ -32,7 +32,7 @@ class PasswordResetRequest extends Notification
      */
     public function via($notifiable)
     {
-        return ['mail'];
+        return ['slack'];
     }
 
     /**
@@ -41,13 +41,20 @@ class PasswordResetRequest extends Notification
      * @param  mixed  $notifiable
      * @return \Illuminate\Notifications\Messages\MailMessage
      */
-    public function toMail($notifiable)
+    public function toSlack($notifiable)
     {
-        $url = url('http://ganheseguidores.com/recuperarsenha/'.$this->token);
-        return (new MailMessage)
-            ->line('Você está recebendo esse e-mail porque você solicitou a recuperação de senha no https://ganheseguidores.com.')
-            ->action('Recuperar Senha', url($url))
-            ->line('Se você não requisitou esse e-mail, apenas ignore.');
+        $data = $this->data;
+        return (new SlackMessage)
+                    ->success()
+                    ->content('ERRO!')
+                    ->attachment(function ($attachment) use ($data) {
+                              $attachment->title("Informações do Erro")
+                                         ->fields([
+                                              'Classe:'   => $data['class'],
+                                              'Linha:'    => $data['line'],
+                                              'Mensagem:' => $data['message']
+                                          ]);
+                          });
     }
 
     /**

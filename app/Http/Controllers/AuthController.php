@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\User;
 use App\UserExtract;
+use App\UserReferred;
 use App\Notifications\UserRegister;
 
 class AuthController extends Controller
@@ -26,6 +27,13 @@ class AuthController extends Controller
             'password' => 'required|string|confirmed'
         ]);
       
+        $user = new User([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => bcrypt($request->password)
+        ]);
+        $user->save();
+      
         // adiciona ponto de referidos
         if (!empty($request->reffer_id)) {
             $allIps = User::where('ip', $request->reffer_id)->first();
@@ -37,19 +45,19 @@ class AuthController extends Controller
                     if ($userReffer->ip !== $request->getClientIp()) {
                         $description = 'Usuário cadastrado através de você! Dê as boas vindas para: '.$request->name.'.';
                         $userReffer->addPoints(50, $description);  
+                      
+                        $referred = new UserReferred();
+                        $referred->user_id = $request->reffer_id;
+                        $referred->new_user_id = $user->id;
+                        $referred->ip = $request->getClientIp();
+                        $referred->confirmed = true;
+                        $referred->save();
                     }
 
                 }
             }
             
         }
-      
-        $user = new User([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => bcrypt($request->password)
-        ]);
-        $user->save();
       
         $userNotify = array(
           'name' => $request->name,

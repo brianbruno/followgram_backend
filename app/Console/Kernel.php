@@ -24,10 +24,25 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        $schedule->command('verify:follow')->everyFiveMinutes();
-        $schedule->command('verify:like')->everyFiveMinutes();
-        $schedule->command('update:accounts')->everyThirtyMinutes();
-        //$schedule->command('make:magic')->everyFiveMinutes();
+        // $schedule->command('verify:follow')->everyFiveMinutes();
+        // $schedule->command('verify:like')->everyFiveMinutes();
+        // $schedule->command('update:accounts')->everyThirtyMinutes();
+        // $schedule->command('make:magic')->everyFiveMinutes();
+      
+        $schedule->call(function() use($path) {
+            if (file_exists($path . '/queue.pid')) {
+                $pid = file_get_contents($path . '/queue.pid');
+                $result = exec("ps -p $pid --no-heading | awk '{print $1}'");
+                $run = $result == '' ? true : false;
+            } else {
+                $run = true;
+            }
+            if($run) {
+                $command = '/usr/bin/php -c ' . $path .'/php.ini ' . $path . '/artisan queue:work --tries=1 > /dev/null & echo $!';
+                $number = exec($command);
+                file_put_contents($path . '/queue.pid', $number);
+            }
+        })->name('monitor_queue_listener')->everyMinute();
     }
 
     /**

@@ -9,6 +9,7 @@ use App\UserInstagram;
 use Phpfastcache\Helper\Psr16Adapter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use App\Notifications\ErrorLog;
 
 class VerifyLike extends Command
 {
@@ -97,7 +98,7 @@ class VerifyLike extends Command
                           $like->save();
                         
                           $descriptionIn = 'Você curtiu a foto de '. $targetLike->username.'.';
-                          $descriptionOut = $liking->username . ' curtiu sua foto.';
+                          $descriptionOut = $liking->username . ' curtiu sua foto ('.$targetLike->username.').';
                           // credita os pontos
                           $liking->user()->first()->addPoints($like->points, $descriptionIn);
                           // debita os pontos
@@ -119,11 +120,26 @@ class VerifyLike extends Command
                 } catch (\InstagramScraper\Exception\InstagramException $e) {
                     $like->status = 'canceled';
                     $like->save();
-                    $this->line('Erro: '.$e->getMessage());
+                  
+                     $data = array(
+                        'class'   => 'VerifyLike',
+                        'line'    => $e->getLine(),
+                        'message' => $e->getMessage()
+                    );
+                  
+                    $targetfollow->notify(new ErrorLog($data));
+                  
                 } catch (\Exception $e) {
                     $like->status = 'canceled';
                     $like->save();
-                    $this->line('Erro: '.$e->getMessage());
+                  
+                    $data = array(
+                        'class'   => 'VerifyLike',
+                        'line'    => $e->getLine(),
+                        'message' => $e->getMessage()
+                    );
+                  
+                    $targetfollow->notify(new ErrorLog($data));
                 }
                 
             }

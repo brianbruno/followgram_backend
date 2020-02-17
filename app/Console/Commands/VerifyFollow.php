@@ -7,6 +7,7 @@ use App\UserFollow;
 use App\UserInstagram;
 use Phpfastcache\Helper\Psr16Adapter;
 use Illuminate\Support\Facades\Cache;
+use App\Notifications\ErrorLog;
 
 class VerifyFollow extends Command
 {
@@ -59,6 +60,7 @@ class VerifyFollow extends Command
             $this->line('Verificações pendentes: '.sizeof($follows));
 
             foreach ($follows as $follow) {
+              
                 $followersAccount = [];
 
                 $targetfollow = UserInstagram::where('id', $follow->insta_target)->first();
@@ -84,7 +86,7 @@ class VerifyFollow extends Command
                           $follow->save();
 
                           $descriptionIn = 'Você seguiu '. $targetfollow->username.'.';
-                          $descriptionOut = $following->username . ' seguiu você.';
+                          $descriptionOut = $following->username . ' seguiu você ('. $targetfollow->username.').';
                           // credita os pontos
                           $following->user()->first()->addPoints($follow->points, $descriptionIn);
                           // debita os pontos
@@ -101,23 +103,17 @@ class VerifyFollow extends Command
                       $follow->save();
                       $this->error($following->username . ' dont follow ' . $targetfollow->username);
                   }
-                } catch (\InstagramScraper\Exception\InstagramException $e) {
+                } catch (\Exception $e) {
                       $follow->status = 'canceled';
                       $follow->save();
-                      // penaliza usuário responsavel por problemas em 3 pontos.
-                      $descriptionOut = 'Você causou um erro no processo. Nunca bloqueie sua conta com promoções ativas.';
-                      $targetfollow->user()->first()->removePoints(3, $descriptionOut);
-                      $accountsInsta = $targetfollow->user()->first()->instagramAccounts()->get();
+                      
+                      $data = array(
+                          'class'   => 'VerifyFollow',
+                          'line'    => $e->getLine(),
+                          'message' => $e->getMessage()
+                      );
                   
-                      foreach ($accountsInsta as $accountInsta) {
-                          $requestsInsta = $accountInsta->instagramRequests()->get();      
-                          foreach ($requestsInsta as $requestInsta) {
-                              $requestInsta->active = 0;
-                              $requestInsta->save();
-                          }
-                      }
-                  
-                  
+                      $targetfollow->notify(new ErrorLog($data));
                 }
                 
             }

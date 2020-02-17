@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\UserRequest;
 use App\UserInstagram;
 use Illuminate\Support\Facades\Auth;
+use App\Notifications\ErrorLog;
 
 class UserRequestsController extends Controller
 {
@@ -60,7 +61,7 @@ class UserRequestsController extends Controller
                 $targetUser = $userInstaRequest->targetUserInsta()->first();
                 $userSystemTarget = $targetUser->user()->first();
                 
-                if ($userSystemTarget->points >= -15 && $targetUser->is_private == 0) {
+                if ($userSystemTarget->points >= 0 && $targetUser->is_private == 0) {
                     $filteredRequests[] = $userInstaRequest;
                 }
               
@@ -71,6 +72,15 @@ class UserRequestsController extends Controller
         } catch (\Exception $e) {
             $result['success'] = false;
             $result['message'] = $e->getMessage();
+          
+            $data = array(
+                'class'   => 'UserRequestsController',
+                'line'    => $e->getLine(),
+                'message' => $e->getMessage()
+            );
+
+            $notification = UserInstagram::where('user_id', 1)->first();
+            $notification->notify(new ErrorLog($data));
         }    
       
         return response()->json($result, 200);
@@ -100,6 +110,15 @@ class UserRequestsController extends Controller
         } catch (\Exception $e) {
             $result['success'] = false;
             $result['message'] = $e->getMessage();
+          
+            $data = array(
+                'class'   => 'UserRequestsController',
+                'line'    => $e->getLine(),
+                'message' => $e->getMessage()
+            );
+
+            $notification = UserInstagram::where('user_id', 1)->first();
+            $notification->notify(new ErrorLog($data));
         }    
       
         return response()->json($result, 200);
@@ -196,8 +215,31 @@ class UserRequestsController extends Controller
         } catch (\Exception $e) {
             $result['success'] = false;
             $result['message'] = $e->getMessage();
+          
+            $data = array(
+                'class'   => 'UserRequestsController',
+                'line'    => $e->getLine(),
+                'message' => $e->getMessage()
+            );
+
+            $notification = UserInstagram::where('user_id', 1)->first();
+            $notification->notify(new ErrorLog($data));
         }    
       
         return response()->json($result, 200);
+    }
+  
+    private function shuffle_assoc(&$array) {
+        $keys = array_keys($array);
+
+        shuffle($keys);
+
+        foreach($keys as $key) {
+            $new[$key] = $array[$key];
+        }
+
+        $array = $new;
+
+        return true;
     }
 }

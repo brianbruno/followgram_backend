@@ -9,6 +9,8 @@ use App\UserRequest;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use App\Notifications\UserAccountAdd;
+use Phpfastcache\Helper\Psr16Adapter;
+use App\Notifications\ErrorLog;
 
 class InstagramAuthController extends Controller
 {
@@ -63,21 +65,49 @@ class InstagramAuthController extends Controller
             'message' => ''
         );
       
-        try {
-            $user = Auth::user();
-            $username = $request->username;
+        $user = Auth::user();
+        $username = $request->username;
+      
+        try {            
 
             $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
-
+          
             $instagram = new \InstagramScraper\Instagram();
+            $instagram = \InstagramScraper\Instagram::withCredentials('dicas.ig', 'marketing2020', new Psr16Adapter('Files'));
+            $instagram->login();
+          
+            $accountInsta = $instagram->getAccount($userInsta->username);   
+          
+            if (empty($accountInsta)) {
+                throw new \Exception('Essa conta não existe. Certifique-se de colocar seu nome de usuário do Instagram.');
+            }
+          
+            $userInsta->confirmed = true;
+            $userInsta->profile_pic_url = $accountInsta->getProfilePicUrl();
+            $userInsta->external_url = $accountInsta->getExternalUrl();
+            $userInsta->full_name = $accountInsta->getFullName();
+            $userInsta->biography = $accountInsta->getBiography();                  
+            $userInsta->is_private = $accountInsta->isPrivate();
+            $userInsta->is_verified = $accountInsta->isVerified(); 
+            $userInsta->save();
+            $retorno['success'] = true;
+            $retorno['message'] = "Confirmamos a sua conta!";
 
-            $medias = $instagram->getMedias($userInsta->username, 1);
+            $userNotify = array(
+                'username' => $user->name,
+                'ig' => $userInsta->username,
+                'image' => $userInsta->profile_pic_url
+            );
 
-            if (sizeof($medias) > 0) {
+            $user->notify(new UserAccountAdd($userNotify));
+
+            //$medias = $instagram->getMedias($userInsta->username, 1);
+            
+            /* if (sizeof($medias) > 0) {
                 $shortCode = $medias[0]['shortCode'];
 
                 $comments = $instagram->getMediaCommentsByCode($shortCode);
-                sleep(5);
+                sleep(3);
 
                 // pega o cod de confirmacao
                 $codConfirm = substr($userInsta->confirm_key, -8);
@@ -110,15 +140,24 @@ class InstagramAuthController extends Controller
                         $user->notify(new UserAccountAdd($userNotify));
                     } else {
                         $retorno['message'] = "Ainda não conseguimos verificar sua conta! Confirme o código e tente novamente. Contas privadas não são aceitas.";
-                    }
+                    } 
                 }
             } else {
                 throw new \Exception('Essa conta não possui nenhum post ou é privada.');
-            }
+            } */
 
         } catch (\Exception $e) {
             $retorno['success'] = false;
-            $retorno['message'] = $e->getMessage();          
+            $retorno['message'] = $e->getMessage();      
+            $erro = $e->getMessage(). ' => '.$user->name;
+            $data = array(
+                'class'   => 'InstagramAuthController->confirm',
+                'line'    => $e->getLine(),
+                'message' => $erro
+            );
+
+            $notification = UserInstagram::where('user_id', 1)->first();
+            $notification->notify(new ErrorLog($data));
         }
       
        
@@ -143,6 +182,15 @@ class InstagramAuthController extends Controller
         } catch(\Exception $e) {
             $retorno['success'] = false;
             $retorno['message'] = $e->getMessage();
+          
+            $data = array(
+                'class'   => 'InstagramAuthController->getAccounts',
+                'line'    => $e->getLine(),
+                'message' => $e->getMessage()
+            );
+
+            $notification = UserInstagram::where('user_id', 1)->first();
+            $notification->notify(new ErrorLog($data));
         }
       
         return response()->json($retorno, 200);
@@ -162,6 +210,8 @@ class InstagramAuthController extends Controller
           
           $user = Auth::user();
           $instagram = new \InstagramScraper\Instagram();
+          $instagram = \InstagramScraper\Instagram::withCredentials('dicas.ig', 'marketing2020', new Psr16Adapter('Files'));
+          $instagram->login();
           
           $minutes = 5;
           $medias = Cache::remember('getMediasUsername-'.$request->username, $minutes*60, function () use ($request, $instagram) {
@@ -187,6 +237,15 @@ class InstagramAuthController extends Controller
         } catch(\Exception $e) {
             $retorno['success'] = false;
             $retorno['message'] = $e->getMessage();
+          
+            $data = array(
+                'class'   => 'InstagramAuthController->getPosts',
+                'line'    => $e->getLine(),
+                'message' => $e->getMessage()
+            );
+
+            $notification = UserInstagram::where('user_id', 1)->first();
+            $notification->notify(new ErrorLog($data));
         }
       
         return response()->json($retorno, 200);
