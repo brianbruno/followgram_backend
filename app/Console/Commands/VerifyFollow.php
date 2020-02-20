@@ -43,13 +43,13 @@ class VerifyFollow extends Command
      */
     public function handle()
     {
-      
+
         $date = new \DateTime;
         $date->modify('-10 minutes');
         $formatted_date = $date->format('Y-m-d H:i:s');
         // 'updated_at', '>=', $formatted_date
         $follows = UserFollow::where('status', 'pending')->limit(10)->get();
-      
+
         if (sizeof($follows) > 0) {
 
             $this->line('Conectando com o Instagram');
@@ -61,12 +61,12 @@ class VerifyFollow extends Command
             $this->line('Verificações pendentes: '.sizeof($follows));
 
             foreach ($follows as $follow) {
-              
+
                 $followersAccount = [];
 
                 $targetfollow = UserInstagram::where('id', $follow->insta_target)->first();
                 $following = UserInstagram::where('id', $follow->insta_following)->first();
-              
+
                 try {
                   $minutes = 15;
                   $account = Cache::remember('getAccountUsername-'.$targetfollow->username, $minutes*60, function () use ($targetfollow, $instagram) {
@@ -74,7 +74,7 @@ class VerifyFollow extends Command
                       sleep(5);
                       return $retorno;
                   });
-                  
+
                   $followersAccount = $instagram->getFollowers($account->getId(), 1000, 100, true);
 
                   $isFollowing = false;
@@ -90,6 +90,12 @@ class VerifyFollow extends Command
                           $descriptionOut = $following->username . ' seguiu você ('. $targetfollow->username.').';
                           // credita os pontos
                           $following->user()->first()->addPoints($follow->points, $descriptionIn);
+
+                          if ($following->user()->first()->is_vip) {
+                              $descriptionIn = 'Bônus VIP.';
+                              $following->user()->first()->addPoints(3, $descriptionIn);
+                          }
+
                           // debita os pontos
                           $targetfollow->user()->first()->removePoints($follow->points, $descriptionOut);
 
@@ -104,15 +110,15 @@ class VerifyFollow extends Command
                       $follow->save();
                       $this->error($following->username . ' dont follow ' . $targetfollow->username);
                   }
-                } catch (\Exception $e) {                      
+                } catch (\Exception $e) {
                       if (strpos($e->getMessage(), 'Failed to get followers') !== false) {
                           $userRequest = UserRequest::where('type', 'follow')->where('insta_target', $follow->insta_target)->first();
                           $userRequest->active = 0;
                           $userRequest->save();
-                          
+
                           $follow->status = 'canceled';
                           $follow->save();
-                        
+
                           $data = array(
                               'class'   => 'VerifyFollow',
                               'line'    => $e->getLine(),
@@ -120,18 +126,18 @@ class VerifyFollow extends Command
                           );
 
                           $targetfollow->notify(new ErrorLog($data));
-                        
+
                       } else if(strpos($e->getMessage(), 'Account with given username') !== false) {
                           $userRequest = UserRequest::where('type', 'follow')->where('insta_target', $follow->insta_target)->first();
                           $userRequest->active = 0;
                           $userRequest->save();
-                          
+
                           $follow->status = 'canceled';
                           $follow->save();
-                        
+
                           $targetfollow->confirmed = 0;
                           $targetfollow->save();
-                        
+
                           $data = array(
                               'class'   => 'VerifyFollow',
                               'line'    => $e->getLine(),
@@ -139,7 +145,7 @@ class VerifyFollow extends Command
                           );
 
                           $targetfollow->notify(new ErrorLog($data));
-                        
+
                       } else {
                           $data = array(
                               'class'   => 'VerifyFollow',
@@ -149,13 +155,13 @@ class VerifyFollow extends Command
 
                           $targetfollow->notify(new ErrorLog($data));
                       }
-                      
+
                 }
-                
+
             }
         }
-        
+
         $this->info('Verificações de seguidores finalizada.');
-      
+
     }
 }

@@ -5,14 +5,15 @@ namespace App;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laravel\Passport\HasApiTokens;
 
 
 class User extends Authenticatable
 {
     use Notifiable, HasApiTokens;
-  
-    protected $appends = ['new_followers', 'new_comments', 'new_likes', 'points', 'pending_points'];
+
+    protected $appends = ['new_followers', 'new_comments', 'new_likes', 'points', 'pending_points', 'is_vip'];
 
     /**
      * The attributes that are mass assignable.
@@ -40,22 +41,40 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
-  
+
     public function instagramAccounts()
     {
         return $this->hasMany('App\UserInstagram');
     }
-  
+
     public function points()
     {
         return $this->hasMany('App\UserPoints');
     }
-  
+
     public function extract()
     {
         return $this->hasMany('App\UserExtract', 'user_id', 'id');
     }
-  
+
+    public function userVips()
+    {
+        return $this->hasMany('App\UserVIP', 'user_id', 'id');
+    }
+
+    public function getIsVipAttribute()
+    {
+        $isVip = false;
+        $vips = $this->userVips()->where('end_date', '>', DB::raw('NOW()'))->first();
+
+        if (!empty($vips)) {
+            $isVip = true;
+        }
+
+        return $isVip;
+
+    }
+
     public function getNewFollowersAttribute()
     {
         $instaAccounts = $this->instagramAccounts()->get();
@@ -67,15 +86,15 @@ class User extends Authenticatable
             $confirmedFollowers += $account->instagramFollowers()->where('status', 'confirmed')
                       ->where('created_at', '>=', $date)->count();
         }
-      
+
         return $confirmedFollowers;
     }
-  
+
     public function getNewCommentsAttribute()
     {
         return 0;
     }
-  
+
     public function getNewLikesAttribute()
     {
         $instaAccounts = $this->instagramAccounts()->get();
@@ -87,10 +106,10 @@ class User extends Authenticatable
             $confirmedLikes += $account->instagramLikesReceived()->where('status', 'confirmed')
                       ->where('created_at', '>=', $date)->count();
         }
-      
+
         return $confirmedLikes;
     }
-  
+
     public function getPendingPointsAttribute()
     {
         $instaAccounts = $this->instagramAccounts()->get();
@@ -99,22 +118,22 @@ class User extends Authenticatable
         foreach($instaAccounts as $account) {
             $followers = $account->instagramFollowing()->where('status', 'pending')->get();
             foreach ($followers as $follow) {
-                $pending = $pending + $follow->points; 
+                $pending = $pending + $follow->points;
             }
-          
+
             $likes = $account->instagramLikes()->where('status', 'pending')->get();
             foreach ($likes as $like) {
-                $pending = $pending + $like->points; 
+                $pending = $pending + $like->points;
             }
         }
-      
-        return $pending;      
-      
+
+        return $pending;
+
     }
-  
+
     public function addPoints($value, $description) {
         $points = $this->points()->first();
-  
+
         if (empty($points)) {
             $points = new UserPoints();
             $points->user_id = $this->id;
@@ -122,9 +141,9 @@ class User extends Authenticatable
         } else {
             $points->points = $points->points + $value;
         }
-      
+
         $points->save();
-      
+
         $extract = new UserExtract();
         $extract->user_id = $this->id;
         $extract->description = $description;
@@ -132,22 +151,22 @@ class User extends Authenticatable
         $extract->points = $value;
         $extract->save();
     }
-  
+
     public function removePoints($value, $description) {
         $result = false;
-      
+
         $points = $this->points()->first();
-  
+
         if (empty($points)) {
             $points = new UserPoints();
             $points->user_id = $this->id;
             $points->points = 0 - $value;
         } else {
-            $points->points = $points->points - $value;  
+            $points->points = $points->points - $value;
         }
-        
-        $points->save(); 
-      
+
+        $points->save();
+
         $extract = new UserExtract();
         $extract->user_id = $this->id;
         $extract->description = $description;
@@ -156,10 +175,10 @@ class User extends Authenticatable
         $extract->save();
 
         $result = true;
-      
+
         return $result;
     }
-  
+
     public function getPointsAttribute()
     {
         $points = $this->points()->first();
@@ -167,11 +186,11 @@ class User extends Authenticatable
         if (!empty($points)) {
             $total = $points->points;
         }
-      
+
         return $total;
-      
+
     }
-  
+
     public function routeNotificationForSlack($notification)
     {
         return 'https://hooks.slack.com/services/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';

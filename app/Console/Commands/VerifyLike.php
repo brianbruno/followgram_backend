@@ -44,13 +44,13 @@ class VerifyLike extends Command
      */
     public function handle()
     {
-      
+
         $date = new \DateTime;
         $date->modify('-10 minutes');
         $formatted_date = $date->format('Y-m-d H:i:s');
         // 'updated_at', '>=', $formatted_date
         $likes = UserLike::where('status', 'pending')->limit(10)->get();
-      
+
         if (sizeof($likes) > 0) {
 
             $this->line('Conectando com o Instagram');
@@ -66,51 +66,57 @@ class VerifyLike extends Command
 
                 $targetLike = UserInstagram::where('id', $like->insta_target)->first();
                 $liking = UserInstagram::where('id', $like->insta_liking)->first();
-              
+
                 try {
-                  
+
                   $minutes = 15;
                   $requestUrlItem = UserRequest::where('id', $like->request_id)->first();
                   $users_requests = DB::table('user_requests')->select('post_url')->where('id', $like->request_id)->first();
                   $postUrl = $users_requests->post_url;
-                  
-                  $media = Cache::remember('getMediaByUrl-'.$postUrl, $minutes*60, function () use ($postUrl, $instagram) {                      
+
+                  $media = Cache::remember('getMediaByUrl-'.$postUrl, $minutes*60, function () use ($postUrl, $instagram) {
                       $retorno = $instagram->getMediaByUrl($postUrl);
                       sleep(5);
-                      return $retorno;                     
+                      return $retorno;
                   });
-                  
+
                   $minutes = 2;
-                  
+
                   $this->line('Post URL: '.$postUrl);
-                  
+
                   $likesPost = Cache::remember('getMediaLikesByCode-'.$media->getShortCode(), $minutes*60, function () use ($media, $instagram) {
                       $retorno = $instagram->getMediaLikesByCode($media->getShortCode());
                       sleep(2);
                       return $retorno;
                   });
-                  
+
                   $liked = false;
-                  
+
                   foreach ($likesPost as $likePost) {
                       if($likePost->getUsername() == $liking->username) {
                           $liked = true;
 
                           $like->status = 'confirmed';
                           $like->save();
-                        
+
                           $descriptionIn = 'Você curtiu a foto de '. $targetLike->username.'.';
                           $descriptionOut = $liking->username . ' curtiu sua foto ('.$targetLike->username.').';
                           // credita os pontos
                           $liking->user()->first()->addPoints($like->points, $descriptionIn);
+
+                          if ($liking->user()->first()->is_vip) {
+                              $descriptionIn = 'Bônus VIP.';
+                              $liking->user()->first()->addPoints(3, $descriptionIn);
+                          }
+
                           // debita os pontos
                           $targetLike->user()->first()->removePoints($like->points, $descriptionOut);
 
                           break;
-                      }                   
-                    
+                      }
+
                   }
-                  
+
                   if ($liked) {
                       $this->info($liking->username . ' liked ' . $targetLike->username);
                   } else {
@@ -118,28 +124,28 @@ class VerifyLike extends Command
                       $like->save();
                       $this->error($liking->username . ' dont liked ' . $targetLike->username);
                   }
-                  
+
                 } catch (\InstagramScraper\Exception\InstagramException $e) {
                      $data = array(
                         'class'   => 'VerifyLike->InstagramException',
                         'line'    => $e->getLine(),
                         'message' => $e->getMessage()
                     );
-                  
+
                     $targetLike->notify(new ErrorLog($data));
-                  
-                } catch (\Exception $e) {  
-                  
+
+                } catch (\Exception $e) {
+
                     if ($e->getMessage() == 'Media with given code does not exist or account is private.') {
-                      
+
                         echo 'Media não existe.'.PHP_EOL;
-                      
+
                         $requestUrlItem = UserRequest::where('id', $like->request_id)->first();
                         $requestUrlItem->active = 0;
                         $requestUrlItem->save();
                         $like->status = 'canceled';
                         $like->save();
-                        
+
                         $data = array(
                             'class'   => 'VerifyLike->Exception',
                             'line'    => $e->getLine(),
@@ -157,11 +163,11 @@ class VerifyLike extends Command
                         $targetLike->notify(new ErrorLog($data));
                     }
                 }
-                
+
             }
         }
-        
+
         $this->info('Verificações de seguidores finalizada.');
-      
+
     }
 }
