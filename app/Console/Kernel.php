@@ -4,6 +4,8 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use App\Jobs\VerifyLike;
+use App\Jobs\VerifyFollow;
 
 class Kernel extends ConsoleKernel
 {
@@ -23,11 +25,19 @@ class Kernel extends ConsoleKernel
      * @return void
      */
     protected function schedule(Schedule $schedule)
-    {
-        // $schedule->command('verify:follow')->everyFiveMinutes();
-        // $schedule->command('verify:like')->everyFiveMinutes();
-        // $schedule->command('update:accounts')->everyThirtyMinutes();
+    {        
+        // VerifyLike::dispatch();
+        // VerifyFollow::dispatch();
+        $schedule->command('verify:follow')->everyFiveMinutes();
+        $schedule->command('verify:like')->everyFiveMinutes();
+        $schedule->command('update:accounts')->everyThirtyMinutes();
+      
+        if (rand(1, 2) % 2 == 0) {
+            $schedule->command('send:push')->everyFifteenMinutes();          
+        }
         // $schedule->command('make:magic')->everyFiveMinutes();
+      
+        $path = base_path();
       
         $schedule->call(function() use($path) {
             if (file_exists($path . '/queue.pid')) {
@@ -43,6 +53,7 @@ class Kernel extends ConsoleKernel
                 file_put_contents($path . '/queue.pid', $number);
             }
         })->name('monitor_queue_listener')->everyMinute();
+      
     }
 
     /**

@@ -148,4 +148,23 @@ class AuthController extends Controller
         return response()->json($retorno);
 
     }
+  
+    public function activeaccount(Request $request) {
+      
+        $request->validate([
+            'activeaccount' => 'required'
+        ]);
+      
+        $user = $request->user();
+        $user->insta_id_active = $request->activeaccount;
+        $user->save();
+      
+        $retorno = array(
+            'status' => true,
+            'message'   => 'Operação realizada com sucesso.'
+        );
+      
+        return response()->json($retorno);
+
+    }
 }

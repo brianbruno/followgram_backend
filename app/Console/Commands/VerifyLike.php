@@ -49,7 +49,7 @@ class VerifyLike extends Command
         $date->modify('-10 minutes');
         $formatted_date = $date->format('Y-m-d H:i:s');
         // 'updated_at', '>=', $formatted_date
-        $likes = UserLike::where('status', 'pending')->limit(15)->get();
+        $likes = UserLike::where('status', 'pending')->limit(10)->get();
       
         if (sizeof($likes) > 0) {
 
@@ -81,6 +81,8 @@ class VerifyLike extends Command
                   });
                   
                   $minutes = 2;
+                  
+                  $this->line('Post URL: '.$postUrl);
                   
                   $likesPost = Cache::remember('getMediaLikesByCode-'.$media->getShortCode(), $minutes*60, function () use ($media, $instagram) {
                       $retorno = $instagram->getMediaLikesByCode($media->getShortCode());
@@ -118,28 +120,42 @@ class VerifyLike extends Command
                   }
                   
                 } catch (\InstagramScraper\Exception\InstagramException $e) {
-                    $like->status = 'canceled';
-                    $like->save();
-                  
                      $data = array(
-                        'class'   => 'VerifyLike',
+                        'class'   => 'VerifyLike->InstagramException',
                         'line'    => $e->getLine(),
                         'message' => $e->getMessage()
                     );
                   
-                    $targetfollow->notify(new ErrorLog($data));
+                    $targetLike->notify(new ErrorLog($data));
                   
-                } catch (\Exception $e) {
-                    $like->status = 'canceled';
-                    $like->save();
+                } catch (\Exception $e) {  
                   
-                    $data = array(
-                        'class'   => 'VerifyLike',
-                        'line'    => $e->getLine(),
-                        'message' => $e->getMessage()
-                    );
-                  
-                    $targetfollow->notify(new ErrorLog($data));
+                    if ($e->getMessage() == 'Media with given code does not exist or account is private.') {
+                      
+                        echo 'Media não existe.'.PHP_EOL;
+                      
+                        $requestUrlItem = UserRequest::where('id', $like->request_id)->first();
+                        $requestUrlItem->active = 0;
+                        $requestUrlItem->save();
+                        $like->status = 'canceled';
+                        $like->save();
+                        
+                        $data = array(
+                            'class'   => 'VerifyLike->Exception',
+                            'line'    => $e->getLine(),
+                            'message' => 'Media inexistente. Quest foi desativada. Target: '.$targetLike->username
+                        );
+
+                        $targetLike->notify(new ErrorLog($data));
+                    } else {
+                        $data = array(
+                            'class'   => 'VerifyLike->Exception',
+                            'line'    => $e->getLine(),
+                            'message' => $e->getMessage()
+                        );
+
+                        $targetLike->notify(new ErrorLog($data));
+                    }
                 }
                 
             }

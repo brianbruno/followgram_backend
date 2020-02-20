@@ -8,6 +8,7 @@ use App\UserInstagram;
 use Phpfastcache\Helper\Psr16Adapter;
 use Illuminate\Support\Facades\Cache;
 use App\Notifications\ErrorLog;
+use App\UserRequest;
 
 class VerifyFollow extends Command
 {
@@ -47,7 +48,7 @@ class VerifyFollow extends Command
         $date->modify('-10 minutes');
         $formatted_date = $date->format('Y-m-d H:i:s');
         // 'updated_at', '>=', $formatted_date
-        $follows = UserFollow::where('status', 'pending')->get();
+        $follows = UserFollow::where('status', 'pending')->limit(10)->get();
       
         if (sizeof($follows) > 0) {
 
@@ -103,17 +104,52 @@ class VerifyFollow extends Command
                       $follow->save();
                       $this->error($following->username . ' dont follow ' . $targetfollow->username);
                   }
-                } catch (\Exception $e) {
-                      $follow->status = 'canceled';
-                      $follow->save();
+                } catch (\Exception $e) {                      
+                      if (strpos($e->getMessage(), 'Failed to get followers') !== false) {
+                          $userRequest = UserRequest::where('type', 'follow')->where('insta_target', $follow->insta_target)->first();
+                          $userRequest->active = 0;
+                          $userRequest->save();
+                          
+                          $follow->status = 'canceled';
+                          $follow->save();
+                        
+                          $data = array(
+                              'class'   => 'VerifyFollow',
+                              'line'    => $e->getLine(),
+                              'message' => $e->getMessage().'. A quest foi desabilitada. Target: '.$targetfollow->username
+                          );
+
+                          $targetfollow->notify(new ErrorLog($data));
+                        
+                      } else if(strpos($e->getMessage(), 'Account with given username') !== false) {
+                          $userRequest = UserRequest::where('type', 'follow')->where('insta_target', $follow->insta_target)->first();
+                          $userRequest->active = 0;
+                          $userRequest->save();
+                          
+                          $follow->status = 'canceled';
+                          $follow->save();
+                        
+                          $targetfollow->confirmed = 0;
+                          $targetfollow->save();
+                        
+                          $data = array(
+                              'class'   => 'VerifyFollow',
+                              'line'    => $e->getLine(),
+                              'message' => $e->getMessage().'. A quest e a conta foram desabilitadas. Target: '.$targetfollow->username
+                          );
+
+                          $targetfollow->notify(new ErrorLog($data));
+                        
+                      } else {
+                          $data = array(
+                              'class'   => 'VerifyFollow',
+                              'line'    => $e->getLine(),
+                              'message' => $e->getMessage()
+                          );
+
+                          $targetfollow->notify(new ErrorLog($data));
+                      }
                       
-                      $data = array(
-                          'class'   => 'VerifyFollow',
-                          'line'    => $e->getLine(),
-                          'message' => $e->getMessage()
-                      );
-                  
-                      $targetfollow->notify(new ErrorLog($data));
                 }
                 
             }

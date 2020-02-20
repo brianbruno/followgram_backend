@@ -31,6 +31,7 @@ class UserRequestsController extends Controller
         try {
             
             $user = Auth::user();
+            $instaAccounts = [];
             $instaAccountsFollowing = [];  
             $instaAccountsLiking = [];
             $questsMade = [];
@@ -38,9 +39,10 @@ class UserRequestsController extends Controller
           
             foreach($user->instagramAccounts()->get() as $account) {
                 $instaAccounts[] = $account->id;
-              
-                $questsMade = array_merge($questsMade, $account->getQuestsMade());              
             }     
+          
+            $activeAccount = UserInstagram::where('id', $user->insta_id_active)->first();
+            $questsMade = array_merge($questsMade, $activeAccount->getQuestsMade());
           
             /*$userRequests = DB::table('user_requests')
                     ->select('user_requests.post_url', 'user_requests.id', 'user_requests.insta_target', 'user_requests.points', 'user_points.points as user_points')
@@ -55,14 +57,18 @@ class UserRequestsController extends Controller
             $requests = UserRequest::whereNotIn('insta_target', $instaAccounts)
                 ->whereNotIn('id', $questsMade)
                 ->where('active', 1)
-                ->with('targetUserInsta')->get();
+                ->with('targetUserInsta')
+                ->orderByRaw('points DESC')->get();
+          
+            $total = 0;
           
             foreach ($requests as $userInstaRequest) {
                 $targetUser = $userInstaRequest->targetUserInsta()->first();
                 $userSystemTarget = $targetUser->user()->first();
                 
-                if ($userSystemTarget->points >= 0 && $targetUser->is_private == 0) {
+                if ($userSystemTarget->points >= 0 && $targetUser->is_private == 0 && $total <= 6) {
                     $filteredRequests[] = $userInstaRequest;
+                    $total++;
                 }
               
             }

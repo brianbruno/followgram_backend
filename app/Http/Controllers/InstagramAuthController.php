@@ -29,29 +29,53 @@ class InstagramAuthController extends Controller
             'username' => 'required|string'
         ]);
       
+        $retorno = array(
+            'success' => true,
+            'message' => 'Operação realizada com sucesso.'
+        );
+      
         $user = Auth::user();
         $username = $request->username;
       
-        $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
-      
-        // $confirmKey = Crypt::encryptString('FollowGram'.$username.$user->id);
-        $confirmKey = Str::random(20);
-        
-        if (empty($userInsta)) {
-            $userInsta = new UserInstagram();
-            $userInsta->user_id = $user->id;
-            $userInsta->username = $username;
+        try {
+            $instagram = new \InstagramScraper\Instagram();
+            $instagram = \InstagramScraper\Instagram::withCredentials('dicas.ig', 'marketing2020', new Psr16Adapter('Files'));
+            $instagram->login();
+          
+            $accountInsta = null;
+          
+            try {
+                $accountInsta = $instagram->getAccount($username);     
+            } catch (\Exception $e) {
+                $retorno['success'] = false;
+            }
+          
+            if (empty($accountInsta)) {
+              throw new \Exception('Essa conta não existe. Certifique-se de colocar seu nome de usuário do Instagram.');
+            }
+
+            $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
+
+            // $confirmKey = Crypt::encryptString('FollowGram'.$username.$user->id);
+            $confirmKey = Str::random(20);
+
+            if (empty($userInsta)) {
+                $userInsta = new UserInstagram();
+                $userInsta->user_id = $user->id;
+                $userInsta->username = $username;
+            }
+
+            $userInsta->confirm_key = $confirmKey;
+            $userInsta->save();
+          
+            $retorno['confirmKey'] = $confirmKey;
+        } catch (\Exception $e) {
+            $retorno['success'] = false;
+            $retorno['message'] = $e->getMessage();
         }
       
-        $userInsta->confirm_key = $confirmKey;
-        $userInsta->save();
+        return response()->json($retorno, 200);
       
-        return response()->json([
-            'success' => true,
-            'confirmKey' => $confirmKey
-        ], 200);
-      
-        
     }
   
     public function confirm(Request $request) {
@@ -100,6 +124,10 @@ class InstagramAuthController extends Controller
             );
 
             $user->notify(new UserAccountAdd($userNotify));
+          
+            // seta a conta cadastrada como ativa
+            $user->insta_id_active = $userInsta->id;
+            $user->save();
 
             //$medias = $instagram->getMedias($userInsta->username, 1);
             

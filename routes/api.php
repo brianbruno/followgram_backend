@@ -22,6 +22,14 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 });
 
 Route::group([
+    'prefix' => 'bi'
+], function () {
+  
+    Route::get('atividades', 'BusinessIntelligenceController@atividades');
+  
+});
+
+Route::group([
     'prefix' => 'auth'
 ], function () {
     Route::post('login', 'AuthController@login');
@@ -33,6 +41,7 @@ Route::group([
         Route::get('logout', 'AuthController@logout');
         Route::post('user', 'AuthController@user');
         Route::post('extract', 'AuthController@extract');
+        Route::post('activeaccount', 'AuthController@activeaccount');
     });
 });
 
