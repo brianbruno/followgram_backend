@@ -48,19 +48,24 @@ class VerifyFollow extends Command
         $date->modify('-10 minutes');
         $formatted_date = $date->format('Y-m-d H:i:s');
         // 'updated_at', '>=', $formatted_date
-        $follows = UserFollow::where('status', 'pending')->limit(10)->get();
+        $follows = UserFollow::where('status', 'pending')->get();
 
         if (sizeof($follows) > 0) {
 
             $this->line('Conectando com o Instagram');
-            $instagram = \InstagramScraper\Instagram::withCredentials('marketingfollowgram', 'marketing2020', new Psr16Adapter('Files'));
+            $instagram = \InstagramScraper\Instagram::withCredentials('pedro_lacerda8', 'marketing2020', new Psr16Adapter('Files'));
             $instagram->login();
             sleep(2);
             $this->info('Conectado.');
 
             $this->line('Verificações pendentes: '.sizeof($follows));
-
-            foreach ($follows as $follow) {
+  
+            for ($i = 0; $i < 25; $i++) {
+              
+                $follow = UserFollow::where('status', 'pending')->first();   
+                
+                if (empty($follow)) 
+                    break;
 
                 $followersAccount = [];
 
@@ -69,18 +74,33 @@ class VerifyFollow extends Command
 
                 try {
                   $minutes = 15;
-                  $account = Cache::remember('getAccountUsername-'.$targetfollow->username, $minutes*60, function () use ($targetfollow, $instagram) {
-                      $retorno = $instagram->getAccount($targetfollow->username);
+                  $account = Cache::remember('getAccountUsername-'.$following->username, $minutes*60, function () use ($following, $instagram) {
+                      $retorno = $instagram->getAccount($following->username);
                       sleep(5);
                       return $retorno;
                   });
-
-                  $followersAccount = $instagram->getFollowers($account->getId(), 1000, 100, true);
+                  
+                  $minutes = 2;     
+                  $this->line('Conta Seguindo: '.$following->username);
+                  $this->line('Conta Target: '.$targetfollow->username);
+                  
+                  /*$followersAccount = Cache::remember('getAccountFollowers-'.$targetfollow->username, $minutes*60, function () use ($account, $instagram) {
+                      $followersAccount = $instagram->getFollowers($account->getId(), 1000, 100, true);
+                      sleep(5);
+                      return $followersAccount;
+                  });*/
+                  // 
+                  
+                  $followersAccount = Cache::remember('getAccountFollowing-'.$following->username, $minutes*60, function () use ($account, $instagram) {
+                      $followersAccount = $instagram->getFollowing($account->getId(), 1000, 100, true);
+                      sleep(5);
+                      return $followersAccount;
+                  });
 
                   $isFollowing = false;
 
                   foreach($followersAccount as $followAccount) {
-                      if($followAccount['username'] == $following->username) {
+                      if($followAccount['username'] == $targetfollow->username) {
                           $isFollowing = true;
 
                           $follow->status = 'confirmed';
@@ -112,9 +132,11 @@ class VerifyFollow extends Command
                   }
                 } catch (\Exception $e) {
                       if (strpos($e->getMessage(), 'Failed to get followers') !== false) {
-                          $userRequest = UserRequest::where('type', 'follow')->where('insta_target', $follow->insta_target)->first();
-                          $userRequest->active = 0;
-                          $userRequest->save();
+                          // $userRequest = UserRequest::where('type', 'follow')->where('insta_target', $follow->insta_target)->first();
+                          // $userRequest->active = 0;
+                          // $userRequest->save();
+                          $following->confirmed = 0;
+                          $following->save();
 
                           $follow->status = 'canceled';
                           $follow->save();
@@ -122,7 +144,7 @@ class VerifyFollow extends Command
                           $data = array(
                               'class'   => 'VerifyFollow',
                               'line'    => $e->getLine(),
-                              'message' => $e->getMessage().'. A quest foi desabilitada. Target: '.$targetfollow->username
+                              'message' => $e->getMessage().'. Conta privada foi desabilitada. Seguindo: '.$following->username
                           );
 
                           $targetfollow->notify(new ErrorLog($data));
@@ -146,6 +168,16 @@ class VerifyFollow extends Command
 
                           $targetfollow->notify(new ErrorLog($data));
 
+                      } else if(strpos($e->getMessage(), 'rate limited') !== false){
+                            $data = array(
+                                'class'   => 'VerifyFollow',
+                                'line'    => $e->getLine(),
+                                'message' => 'Blocked by Instagram. O sistema irá aguardar 5 minutos para tentar processar novamente.'
+                            );
+
+                            $targetfollow->notify(new ErrorLog($data));
+                        
+                            break;
                       } else {
                           $data = array(
                               'class'   => 'VerifyFollow',

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\UserLike;
 use Illuminate\Support\Facades\DB;
+use App\Jobs\PunishUnfollow;
 
 class VipController extends Controller
 {
@@ -37,7 +38,7 @@ class VipController extends Controller
 
             if ($user->points >= $priceVip) {
 
-                $userVipOld = UserVIP::where('end_date', '>', DB::raw('NOW()'))->first();
+                $userVipOld = UserVIP::where('user_id', $user->id)->where('end_date', '>', DB::raw('NOW()'))->first();
 
                 if (empty($userVipOld)) {
                     $start = Carbon::now();
@@ -69,6 +70,34 @@ class VipController extends Controller
 
         return response()->json($result);
 
+    }
+  
+    public function punishUnfollow(Request $request) {
+        $result = array(
+            'success' => true,
+            'message' => 'Operação realizada com sucesso.'
+        );
 
+        try {
+
+            $user = Auth::user();         
+
+            if ($user->is_vip) {
+              
+                PunishUnfollow::dispatch();         
+                $result['message'] = 'Operação será realizada. Aguarde até 1 hora.';
+
+            } else {
+                throw new \Exception('Você não é VIP.');
+            }
+
+
+        } catch (\Exception $e) {
+            $result['success'] = false;
+            $result['message'] = $e->getMessage();
+            // $result['stack'] = $e->getTraceAsString();
+        }
+
+        return response()->json($result);
     }
 }

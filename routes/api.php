@@ -107,6 +107,14 @@ Route::group([
         'prefix' => 'vip'
     ], function () {
         Route::post('buyvip', 'VipController@buyVIP');
+        Route::post('punirunfollow', 'VipController@punishUnfollow');
+    });
+  
+    Route::group([
+        'prefix' => 'admin'
+    ], function () {
+        Route::get('getpointsdata', 'AdminController@getPointsData');
+        Route::get('tasksday', 'AdminController@getTasksDay');
     });
 
 });

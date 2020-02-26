@@ -39,7 +39,7 @@ class InstagramAuthController extends Controller
       
         try {
             $instagram = new \InstagramScraper\Instagram();
-            $instagram = \InstagramScraper\Instagram::withCredentials('dicas.ig', 'marketing2020', new Psr16Adapter('Files'));
+            $instagram = \InstagramScraper\Instagram::withCredentials('pedro_lacerda8', 'marketing2020', new Psr16Adapter('Files'));
             $instagram->login();
           
             $accountInsta = null;
@@ -97,7 +97,7 @@ class InstagramAuthController extends Controller
             $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
           
             $instagram = new \InstagramScraper\Instagram();
-            $instagram = \InstagramScraper\Instagram::withCredentials('dicas.ig', 'marketing2020', new Psr16Adapter('Files'));
+            $instagram = \InstagramScraper\Instagram::withCredentials('pedro_lacerda8', 'marketing2020', new Psr16Adapter('Files'));
             $instagram->login();
           
             $accountInsta = $instagram->getAccount($userInsta->username);   
@@ -238,7 +238,7 @@ class InstagramAuthController extends Controller
           
           $user = Auth::user();
           $instagram = new \InstagramScraper\Instagram();
-          $instagram = \InstagramScraper\Instagram::withCredentials('dicas.ig', 'marketing2020', new Psr16Adapter('Files'));
+          $instagram = \InstagramScraper\Instagram::withCredentials('pedro_lacerda8', 'marketing2020', new Psr16Adapter('Files'));
           $instagram->login();
           
           $minutes = 5;

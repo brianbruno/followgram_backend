@@ -32,9 +32,9 @@ class Kernel extends ConsoleKernel
         $schedule->command('verify:like')->everyFiveMinutes();
         $schedule->command('update:accounts')->everyThirtyMinutes();
       
-        if (rand(1, 2) % 2 == 0) {
+       /*if (rand(1, 2) % 2 == 0) {
             $schedule->command('send:push')->everyFifteenMinutes();          
-        }
+        }*/
         // $schedule->command('make:magic')->everyFiveMinutes();
       
         $path = base_path();

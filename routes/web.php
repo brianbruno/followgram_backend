@@ -11,7 +11,7 @@
 |
 */
 
-Route::get('/inativarbot/{idBot}', 'BotController@inativarBot');
+// Route::get('/inativarbot/{idBot}', 'BotController@inativarBot');
 
 /*
 Route::get('/', function () {
