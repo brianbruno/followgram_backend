@@ -81,6 +81,8 @@ Route::group([
         Route::post('add', 'UserRequestsController@addRequest')->name('addrequests');
 
         Route::post('deletelikerequest', 'UserRequestsController@deleteLikeRequest')->name('deleterequest');
+
+        Route::post('desabilitarconta', 'UserRequestsController@desabilitarConta')->name('deleterequest');
     });
   /*
     Route::group([
