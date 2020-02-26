@@ -49,19 +49,21 @@ class VerifyLike extends Command
         $date->modify('-10 minutes');
         $formatted_date = $date->format('Y-m-d H:i:s');
         // 'updated_at', '>=', $formatted_date
-        $likes = UserLike::where('status', 'pending')->limit(10)->get();
+        $likes = UserLike::where('status', 'pending')->get();
 
         if (sizeof($likes) > 0) {
 
             $this->line('Conectando com o Instagram');
-            $instagram = \InstagramScraper\Instagram::withCredentials('marketingfollowgram', 'marketing2020', new Psr16Adapter('Files'));
+            $instagram = \InstagramScraper\Instagram::withCredentials('pedro_lacerda8', 'marketing2020', new Psr16Adapter('Files'));
             $instagram->login();
             sleep(2);
             $this->info('Conectado.');
 
             $this->line('Verificações pendentes: '.sizeof($likes));
 
-            foreach ($likes as $like) {
+            for ($i = 0; $i < 10; $i++) {
+                $like = UserLike::where('status', 'pending')->first();
+              
                 $likesMedia = [];
 
                 $targetLike = UserInstagram::where('id', $like->insta_target)->first();
@@ -167,7 +169,7 @@ class VerifyLike extends Command
             }
         }
 
-        $this->info('Verificações de seguidores finalizada.');
+        $this->info('Verificações de likes finalizada.');
 
     }
 }

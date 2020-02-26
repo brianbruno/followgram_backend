@@ -43,7 +43,7 @@ class PasswordResetRequest extends Notification
      */
     public function toMail($notifiable)
     {
-        $url = url('http://ganheseguidores.com/recuperarsenha/'.$this->token);
+        $url = url('http://ganheseguidores.com/#/recuperarsenha/'.$this->token);
         return (new MailMessage)
             ->line('Você está recebendo esse e-mail porque você solicitou a recuperação de senha no https://ganheseguidores.com.')
             ->action('Recuperar Senha', url($url))
