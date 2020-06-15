@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\UserInstagram;
 use App\UserRequest;
+use App\Settings;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use App\Notifications\UserAccountAdd;
@@ -36,13 +37,23 @@ class InstagramAuthController extends Controller
       
         $user = Auth::user();
         $username = $request->username;
+        $settings = Settings::where('id', 1)->first();
       
         try {
+            
             $instagram = new \InstagramScraper\Instagram();
-            $instagram = \InstagramScraper\Instagram::withCredentials('pedro_lacerda8', 'marketing2020', new Psr16Adapter('Files'));
+            // $instagram = \InstagramScraper\Instagram::withCredentials($settings->bot_username, $settings->bot_password, new Psr16Adapter('Files'));
+            $instagram = \InstagramScraper\Instagram::withCredentials('luizamelo.1', $settings->bot_password, new Psr16Adapter('Files'));
             $instagram->login();
+            dd('aqui');die;          
           
             $accountInsta = null;
+          
+            $userExists = UserInstagram::where('username', $username)->where('confirmed', '1')->first();
+            if (!empty($userExists)) {
+                throw new \Exception('Esse Instagram já foi associado a uma conta. Caso isso seja um engano, entre em contato com o suporte através do menu "Ajuda"');
+            }
+            
           
             try {
                 $accountInsta = $instagram->getAccount($username);     
@@ -53,25 +64,24 @@ class InstagramAuthController extends Controller
             if (empty($accountInsta)) {
               throw new \Exception('Essa conta não existe. Certifique-se de colocar seu nome de usuário do Instagram.');
             }
+          
+            if ($accountInsta->isPrivate()) {
+              throw new \Exception('Essa conta é privada. Deixe a conta pública para realizar esse procedimento.');
+            }
 
             $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
-
-            // $confirmKey = Crypt::encryptString('FollowGram'.$username.$user->id);
-            $confirmKey = Str::random(20);
 
             if (empty($userInsta)) {
                 $userInsta = new UserInstagram();
                 $userInsta->user_id = $user->id;
                 $userInsta->username = $username;
             }
-
-            $userInsta->confirm_key = $confirmKey;
+          
             $userInsta->save();
           
-            $retorno['confirmKey'] = $confirmKey;
         } catch (\Exception $e) {
             $retorno['success'] = false;
-            $retorno['message'] = $e->getMessage();
+            $retorno['message'] = $e->getMessage().' '.$e->getLine();
         }
       
         return response()->json($retorno, 200);
@@ -91,14 +101,15 @@ class InstagramAuthController extends Controller
       
         $user = Auth::user();
         $username = $request->username;
+        $settings = Settings::where('id', 1)->first();
       
         try {            
 
             $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
           
             $instagram = new \InstagramScraper\Instagram();
-            $instagram = \InstagramScraper\Instagram::withCredentials('pedro_lacerda8', 'marketing2020', new Psr16Adapter('Files'));
-            $instagram->login();
+            //$instagram = \InstagramScraper\Instagram::withCredentials($settings->bot_username, $settings->bot_password, new Psr16Adapter('Files'));
+            //$instagram->login();
           
             $accountInsta = $instagram->getAccount($userInsta->username);   
           
@@ -194,6 +205,99 @@ class InstagramAuthController extends Controller
         
     }
   
+    public function confirm2(Request $request) {
+      
+        $request->validate([
+            'username' => 'required|string'
+        ]);
+      
+        $retorno = array(
+            'success' => false,
+            'message' => ''
+        );
+      
+        $user = Auth::user();
+        $username = $request->username;
+        $settings = Settings::where('id', 1)->first();
+      
+        try {            
+
+            $userInsta = UserInstagram::where('username', $username)->where('user_id', $user->id)->first();
+          
+            $instagram = new \InstagramScraper\Instagram();
+            $instagram = \InstagramScraper\Instagram::withCredentials($settings->bot_username, $settings->bot_password, new Psr16Adapter('Files'));
+            $instagram->login();
+          
+            $accountInsta = $instagram->getAccount($userInsta->username);   
+          
+            if (empty($accountInsta)) {
+                throw new \Exception('Essa conta não existe. Certifique-se de colocar seu nome de usuário do Instagram.');
+            }
+          
+            $minutes = 15;
+          
+            // Pega os últimos 20 seguidores de marketingfollowgram
+            $followersAccount = $instagram->getFollowers('28978262580', 20, 20, true);
+
+            $isFollowing = false;
+
+            foreach($followersAccount as $followAccount) {
+                if($followAccount['username'] == $username) {
+                  $isFollowing = true;
+                                                             
+
+                  $userInsta->confirmed = true;
+                  $userInsta->account_id = $accountInsta->getId();
+                  $userInsta->profile_pic_url = $accountInsta->getProfilePicUrl();
+                  $userInsta->external_url = $accountInsta->getExternalUrl();
+                  $userInsta->full_name = $accountInsta->getFullName();
+                  $userInsta->biography = $accountInsta->getBiography();                  
+                  $userInsta->is_private = $accountInsta->isPrivate();
+                  $userInsta->is_verified = $accountInsta->isVerified(); 
+                  $userInsta->save();
+                  $retorno['success'] = true;
+                  $retorno['message'] = "Confirmamos a sua conta!";
+
+                  $userNotify = array(
+                      'username' => $user->name,
+                      'ig' => $userInsta->username,
+                      'image' => $userInsta->profile_pic_url
+                  );
+
+                  $user->notify(new UserAccountAdd($userNotify));
+
+                  // seta a conta cadastrada como ativa
+                  $user->insta_id_active = $userInsta->id;
+                  $user->save();
+
+                  break;
+                }
+            }
+          
+            if (!$isFollowing) {
+                throw new \Exception('Não foi possível verificar sua conta. Tente novamente em alguns instantes. Certifique-se de que está seguindo através da conta: '.$username);
+            }
+
+        } catch (\Exception $e) {
+            $retorno['success'] = false;
+            $retorno['message'] = $e->getMessage();      
+            $erro = $e->getMessage(). ' => '.$user->name;
+            $data = array(
+                'class'   => 'InstagramAuthController->confirm',
+                'line'    => $e->getLine(),
+                'message' => $erro
+            );
+
+            $notification = UserInstagram::where('user_id', 1)->first();
+            $notification->notify(new ErrorLog($data));
+        }
+      
+       
+        return response()->json($retorno, 200);
+      
+        
+    }
+  
     public function getAccounts() {
       
         $retorno = array(
@@ -225,20 +329,22 @@ class InstagramAuthController extends Controller
     }
   
     public function getPosts(Request $request) {
-      $request->validate([
+        $request->validate([
             'username' => 'required|string'
         ]);
     
-      $retorno = array(
+        $retorno = array(
           'success' => true,
           'data'    => []
         );
+      
+        $settings = Settings::where('id', 1)->first();
       
         try {
           
           $user = Auth::user();
           $instagram = new \InstagramScraper\Instagram();
-          $instagram = \InstagramScraper\Instagram::withCredentials('pedro_lacerda8', 'marketing2020', new Psr16Adapter('Files'));
+          $instagram = \InstagramScraper\Instagram::withCredentials('luizamelo.1', $settings->bot_password, new Psr16Adapter('Files'));
           $instagram->login();
           
           $minutes = 5;

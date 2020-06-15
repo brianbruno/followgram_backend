@@ -66,7 +66,7 @@ class UserRequestsController extends Controller
                 $targetUser = $userInstaRequest->targetUserInsta()->first();
                 $userSystemTarget = $targetUser->user()->first();
 
-                if ($userSystemTarget->points >= 0 && $targetUser->is_private == 0 && $total <= 6) {
+                if ($userSystemTarget->points >= 0 && $targetUser->is_private == 0 && $targetUser->confirmed == 1 && $total <= 6) {
                     $filteredRequests[] = $userInstaRequest;
                     $userInstaRequest->is_vip = $userSystemTarget->is_vip;
                     $total++;

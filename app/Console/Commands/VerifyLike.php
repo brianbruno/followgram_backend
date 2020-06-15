@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\UserLike;
 use App\UserRequest;
 use App\UserInstagram;
+use App\Settings;
 use Phpfastcache\Helper\Psr16Adapter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -49,20 +50,24 @@ class VerifyLike extends Command
         $date->modify('-10 minutes');
         $formatted_date = $date->format('Y-m-d H:i:s');
         // 'updated_at', '>=', $formatted_date
+        $settings = Settings::where('id', 1)->first();
         $likes = UserLike::where('status', 'pending')->get();
 
         if (sizeof($likes) > 0) {
 
             $this->line('Conectando com o Instagram');
-            $instagram = \InstagramScraper\Instagram::withCredentials('pedro_lacerda8', 'marketing2020', new Psr16Adapter('Files'));
+            $instagram = new \InstagramScraper\Instagram();
+            $instagram = \InstagramScraper\Instagram::withCredentials($settings->bot_username, $settings->bot_password, new Psr16Adapter('Files'));
             $instagram->login();
             sleep(2);
             $this->info('Conectado.');
 
             $this->line('Verificações pendentes: '.sizeof($likes));
 
-            for ($i = 0; $i < 10; $i++) {
+            for ($i = 0; $i < 5; $i++) {
                 $like = UserLike::where('status', 'pending')->first();
+                if (empty($like)) 
+                    break;
               
                 $likesMedia = [];
 
@@ -128,6 +133,26 @@ class VerifyLike extends Command
                   }
 
                 } catch (\InstagramScraper\Exception\InstagramException $e) {
+                  
+                    if ($e->getMessage() == 'Media with this code does not exist') {
+
+                        echo 'Media não existe.'.PHP_EOL;
+
+                        $requestUrlItem = UserRequest::where('id', $like->request_id)->first();
+                        $requestUrlItem->active = 0;
+                        $requestUrlItem->save();
+                        $like->status = 'canceled';
+                        $like->save();
+
+                        $data = array(
+                            'class'   => 'VerifyLike->InstagramException',
+                            'line'    => $e->getLine(),
+                            'message' => 'Media inexistente. Quest foi desativada. Target: '.$targetLike->username
+                        );
+
+                        $targetLike->notify(new ErrorLog($data));
+                    } 
+                    
                      $data = array(
                         'class'   => 'VerifyLike->InstagramException',
                         'line'    => $e->getLine(),
@@ -138,7 +163,8 @@ class VerifyLike extends Command
 
                 } catch (\Exception $e) {
 
-                    if ($e->getMessage() == 'Media with given code does not exist or account is private.') {
+                    if ($e->getMessage() == 'Media with given code does not exist or account is private.' or
+                        $e->getMessage() == 'Media with this code does not exist') {
 
                         echo 'Media não existe.'.PHP_EOL;
 

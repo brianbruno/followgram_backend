@@ -167,4 +167,22 @@ class AuthController extends Controller
         return response()->json($retorno);
 
     }
+  
+    public function availableEmail(Request $request) {
+      
+        $request->validate([
+            'email' => 'required'
+        ]);
+      
+        $user = User::where('email', $request->email)->first();
+      
+        $retorno = array(
+            'status' => true,
+            'available' => empty($user) ? true : false,
+            'message'   => 'Operação realizada com sucesso.'
+        );
+      
+        return response()->json($retorno);
+
+    }
 }

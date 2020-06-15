@@ -28,9 +28,13 @@ class Kernel extends ConsoleKernel
     {        
         // VerifyLike::dispatch();
         // VerifyFollow::dispatch();
-        $schedule->command('verify:follow')->everyFiveMinutes();
-        $schedule->command('verify:like')->everyFiveMinutes();
-        $schedule->command('update:accounts')->everyThirtyMinutes();
+        //$schedule->command('verify:follow')->everyFiveMinutes();
+        //$schedule->command('verify:like')->everyFiveMinutes();
+      
+        //$schedule->command('verify:follow')->everyThirtyMinutes();
+        //$schedule->command('verify:like')->everyThirtyMinutes();
+        
+        // $schedule->command('update:accounts')->everyThirtyMinutes();
       
        /*if (rand(1, 2) % 2 == 0) {
             $schedule->command('send:push')->everyFifteenMinutes();          

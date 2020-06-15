@@ -33,6 +33,7 @@ Route::group([
     'prefix' => 'auth'
 ], function () {
     Route::post('login', 'AuthController@login');
+    Route::post('availableemail', 'AuthController@availableEmail');
     Route::post('signup', 'AuthController@signup');
 
     Route::group([
@@ -63,6 +64,7 @@ Route::group([
     ], function () {
         Route::post('adduser', 'InstagramAuthController@addUser');
         Route::post('confirm', 'InstagramAuthController@confirm');
+        Route::post('confirm2', 'InstagramAuthController@confirm2');
         Route::post('getAccounts', 'InstagramAuthController@getAccounts');
 
         Route::post('getPosts', 'InstagramAuthController@getPosts');
@@ -117,6 +119,15 @@ Route::group([
     ], function () {
         Route::get('getpointsdata', 'AdminController@getPointsData');
         Route::get('tasksday', 'AdminController@getTasksDay');
+        Route::post('getsettings', 'SettingsController@getSettings');
+        Route::post('savesettings', 'SettingsController@saveSettings');
+    });
+  
+    Route::group([
+        'prefix' => 'reward'
+    ], function () {
+        Route::post('getreward', 'UserRewardsController@getReward');
+        Route::post('getdayreward', 'UserRewardsController@getDayReward');
     });
 
 });
